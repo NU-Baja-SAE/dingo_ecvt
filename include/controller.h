@@ -2,6 +2,13 @@
 #include "pulse_counter.h"
 #include "BajaCan.h"
 
+enum ControlMode {
+    TORQUE,
+    POWER,
+    MANUAL,
+    BRAKE,
+};
+
 
 class Controller {
     public:
@@ -13,4 +20,5 @@ class Controller {
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
         BajaCan can;
+        ControlMode controlMode = POWER; // default to power mode
 };

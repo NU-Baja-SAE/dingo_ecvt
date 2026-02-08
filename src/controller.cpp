@@ -49,6 +49,22 @@ void Controller::init()
  */
 void Controller::timerCallback()
 {
+    // Determine motor setpoint based on mode
+    int motorSetpoint = 0;
+
+    switch (this->controlMode)
+    {
+    case POWER:
+        /* code */
+        break;
+    
+    default:
+        break;
+    }
+    
+    // set motor setpoint
+    motor.setSetpoint(motorSetpoint);
+    
     CanMessage receivedMessage(0, 0);                    // Create an empty CanMessage object to store the received message
     esp_err_t ret = can.readMessage(receivedMessage, 0); // Non-blocking read
     if (ret == ESP_OK)

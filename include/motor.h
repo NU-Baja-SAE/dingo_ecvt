@@ -7,11 +7,11 @@ class Motor {
         Motor();
         void startTimer();
         int getPosition();
-        void setPosition(int position);
+        void setSetpoint(int position);
     private:
         ESP32Encoder encoder;
         void timerCallback();
 
         int currentPosition;
-        int targetPosition;
+        int setpointPosition;
 };
