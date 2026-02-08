@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "ESP32Encoder.h"
 
-#define MOTOR_TIMER_RATE 500 // ms
 
 class Motor {
     public:

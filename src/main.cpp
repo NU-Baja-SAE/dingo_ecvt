@@ -5,11 +5,10 @@ Controller controller;
 
 void setup() {
   Serial.begin(115200);
-  controller.startTimer();
+  controller.init();
 
 }
 
 void loop() {
-  Serial.println("Hello, world!");
   delay(1000);
 }

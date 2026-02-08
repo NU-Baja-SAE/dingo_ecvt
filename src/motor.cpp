@@ -1,5 +1,6 @@
 // This file implements motor control for the ECVT
 #include "motor.h"
+#include "config.h"
 
 Motor::Motor() : currentPosition(0), targetPosition(0) {}
 
@@ -40,5 +41,5 @@ void Motor::startTimer()
  */
 void Motor::timerCallback()
 {
-    Serial.println("Hello from motor timer callback!");
+    
 }
