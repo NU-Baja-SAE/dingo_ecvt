@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-Motor::Motor() : currentPosition(0), targetPosition(0) {}
+Motor::Motor() : currentPosition(0), setpointPosition(0) {}
 
 
 /**
@@ -34,6 +34,16 @@ void Motor::startTimer()
     }
 }
 
+
+/**
+ * @brief Sets the target position for the motor
+ * 
+ * @param position in units of encoder counts, where 0 is the idle position, and the positive direction is towards the engine
+ */
+void Motor::setSetpoint(int position)
+{
+    this->setpointPosition = position;
+}
 
 /**
  * @brief Timer callback function for the motor timer. This function will be called every MOTOR_TIMER_RATE milliseconds. It currently just prints a message to the console, but it will eventually contain the logic for controlling the motor based on the current position and target position.
