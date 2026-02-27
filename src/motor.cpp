@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-Motor::Motor() : currentPosition(0), setpointPosition(0), currentVelocity(0), driver() {}
+Motor::Motor() : currentPosition(0), setpointPosition(0), currentVelocity(0.0f), stepAccumulator(0.0f), driver() {}
 
 
 void Motor::init()
@@ -74,7 +74,7 @@ void Motor::timerCallback()
 {
     int steps = this->setpointPosition - this->currentPosition;
     
-    int accel = (steps - this->currentVelocity * (MOTOR_TIMER_RATE / 1000.0)) / (MOTOR_TIMER_RATE / 1000.0); // Calculate the acceleration needed to reach the setpoint in the next time step
+    float accel = (steps - this->currentVelocity * (MOTOR_TIMER_RATE / 1000.0f)) / (MOTOR_TIMER_RATE / 1000.0f); // Calculate the acceleration needed to reach the setpoint in the next time step
     if (accel > maxAcceleration)
     {
         accel = maxAcceleration;
@@ -84,7 +84,7 @@ void Motor::timerCallback()
         accel = -maxAcceleration;
     }
 
-    this->currentVelocity += accel * (MOTOR_TIMER_RATE / 1000.0); // Update the current velocity based on the acceleration, ensuring we don't exceed max acceleration
+    this->currentVelocity += accel * (MOTOR_TIMER_RATE / 1000.0f); // Update the current velocity based on the acceleration, ensuring we don't exceed max acceleration
     if (this->currentVelocity > this->maxVelocity) // Limit the maximum velocity to prevent commanding the driver to move too fast
     {
         this->currentVelocity = this->maxVelocity;
@@ -94,12 +94,14 @@ void Motor::timerCallback()
         this->currentVelocity = -this->maxVelocity;
     }
 
-    
-    int stepsToMove = this->currentVelocity * (MOTOR_TIMER_RATE / 1000.0); // Calculate the number of steps to move based on the current velocity
+    this->stepAccumulator += this->currentVelocity * (MOTOR_TIMER_RATE / 1000.0f); // Accumulate fractional steps to allow proper low-speed operation
+    int stepsToMove = (int)this->stepAccumulator; // Extract whole steps, keeping fractional remainder
+    this->stepAccumulator -= stepsToMove;
+
     this->driver.moveSteps(stepsToMove, abs(this->currentVelocity)); // Move forward 
     this->currentPosition += stepsToMove; // Update the current position based on the steps commanded
 
-    Serial.printf(">Setpoint:%d\n>Current_Position:%d\n>Steps_to_Move:%d\n>Current_Velocity:%d\n", this->setpointPosition, this->currentPosition, stepsToMove, this->currentVelocity);
+    Serial.printf(">Setpoint:%d\n>Current_Position:%d\n>Steps_to_Move:%d\n>Current_Velocity:%.2f\n", this->setpointPosition, this->currentPosition, stepsToMove, this->currentVelocity);
      
 
 }
