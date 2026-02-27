@@ -17,7 +17,8 @@ class Motor {
         void timerCallback();
 
         int currentPosition; // in units of steps
-        int currentVelocity; // in units of steps/s
+        float currentVelocity; // in units of steps/s
+        float stepAccumulator; // accumulates fractional steps for sub-step precision
         static const int maxAcceleration = 100000; // max acceleration in steps/s^2
         static const int maxVelocity = 10000; // max velocity in steps/s
         int setpointPosition; // in units of steps
