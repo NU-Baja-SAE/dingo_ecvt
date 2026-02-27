@@ -31,12 +31,12 @@ void Controller::init()
 
     if (!controller_timer)
     {
-        Serial.printf("ERROR: Brake timer could not be created\n");
+        Serial.printf("ERROR: Controller timer could not be created\n");
     }
 
     if (xTimerStart(controller_timer, 0) != pdPASS)
     {
-        Serial.printf("ERROR: Brake timer could not be started\n");
+        Serial.printf("ERROR: Controller timer could not be started\n");
     }
 
     motor.init(); // Start the motor timer as well

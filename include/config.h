@@ -28,10 +28,10 @@
 
 
 // SPI Pin Definitions
-#define SPI_SDI_PIN         21    // GPIO23: SPI Slave Data In
+#define SPI_SDI_PIN         21    // GPIO21: SPI Slave Data In
 #define SPI_SDO_PIN         22    // GPIO22: SPI Slave Data Out
 #define SPI_SCK_PIN         17    // GPIO33: SPI Clock
-#define SPI_nSCS_PIN        23    // GPIO21: SPI Chip Select
+#define SPI_nSCS_PIN        23    // GPIO23: SPI Chip Select
 
 // Control Pin Definitions
 #define nSLEEP_PIN          33    // GPIO19: nSLEEP control

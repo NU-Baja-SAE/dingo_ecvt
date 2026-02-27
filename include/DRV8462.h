@@ -13,6 +13,7 @@ class DRV8462
 {
 public:
     DRV8462();
+    ~DRV8462();
     void begin();
     void enable();
     void disable();

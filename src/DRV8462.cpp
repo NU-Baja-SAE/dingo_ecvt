@@ -7,6 +7,11 @@ DRV8462::DRV8462()
     this->spi = new SPIClass(VSPI);
 }
 
+DRV8462::~DRV8462()
+{
+    delete this->spi;
+}
+
 /**
  * @brief Sets up the DRV8462 driver by initializing SPI communication, configuring control registers, and setting up the RMT peripheral for step pulse generation.
  *
@@ -85,7 +90,7 @@ void DRV8462::enable()
 
 
 /**
- * @brief Writes a 16-bit value to a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, and checks for any faults indicated in the response.
+ * @brief Writes a 8-bit value to a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, and checks for any faults indicated in the response.
  *
  * @param address The register address to write to (6 bits).
  * @param data The 8-bit data value to write to the register.
@@ -93,7 +98,7 @@ void DRV8462::enable()
 void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
 {
     // Implement SPI write operation to the DRV8462 registers
-    volatile uint16_t reg_value = 0;
+    uint16_t reg_value = 0;
 
     reg_value |= ((address << SPI_ADDRESS_POS) & SPI_ADDRESS_MASK); // Adding register address value
     reg_value |= ((data << SPI_DATA_POS) & SPI_DATA_MASK);          // Adding data value
@@ -122,14 +127,14 @@ void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
 }
 
 /**
- * @brief Reads a 16-bit value from a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, checks for any faults indicated in the response, and returns the data read from the register.
+ * @brief Reads a 8-bit value from a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, checks for any faults indicated in the response, and returns the data read from the register.
  *
  * @param address The register address to read from (6 bits).
  * @return uint16_t The 16-bit data value read from the specified register.
  */
 uint16_t DRV8462::spiReadRegister(uint8_t address)
 {
-    volatile uint16_t reg_value = 0;
+    uint16_t reg_value = 0;
 
     reg_value |= ((address << SPI_ADDRESS_POS) & SPI_ADDRESS_MASK); // Configure register address value
     reg_value |= SPI_RW_BIT_MASK;                                   // Set R/W bit
@@ -206,8 +211,8 @@ void DRV8462::setupRMT()
 /**
  * @brief Moves the motor a specified number of steps at a given speed in Hz. It calculates the pulse duration based on the desired speed, constructs the RMT items for the step pulses, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
  * 
- * @param steps 
- * @param speed_hz 
+ * @param steps number of steps to move (positive for one direction, negative for the other)
+ * @param speed_hz speed of the steps in Hz (steps per second)
  */
 void DRV8462::moveSteps(int steps, int speed_hz)
 {
