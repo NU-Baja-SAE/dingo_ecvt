@@ -229,6 +229,12 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         steps = MAX_PULSES;
     }
 
+    // Validate speed to avoid division by zero and unreasonable values
+    if (speed_hz <= 0)
+    {
+        Serial.println("Error: speed_hz must be greater than 0");
+        return;
+    }
     // Calculate pulse duration in microseconds
     // For a 50% duty cycle: Period = 1,000,000 / speed_hz
     uint32_t duration_us = 1000000 / speed_hz / 2;
