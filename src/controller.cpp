@@ -39,7 +39,8 @@ void Controller::init()
         Serial.printf("ERROR: Brake timer could not be started\n");
     }
 
-    motor.startTimer(); // Start the motor timer as well
+    motor.init(); // Start the motor timer as well
+    motor.enable(); // Enable the motor driver
     can.begin();        // Start the CAN bus
 }
 
@@ -51,16 +52,18 @@ void Controller::timerCallback()
 {
     // Determine motor setpoint based on mode
     int motorSetpoint = 0;
-
+    
     switch (this->controlMode)
     {
-    case POWER:
+        case POWER:
         /* code */
         break;
     
     default:
         break;
     }
+
+    motorSetpoint = sin(2 * PI * 0.5 * millis() / 1000.0) * 750; // Example: Sine wave setpoint for testing (amplitude of 750 steps, frequency of 0.5 Hz)
     
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
