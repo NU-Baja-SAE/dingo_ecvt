@@ -40,4 +40,4 @@
 #define STEP_PIN            16    // GPIO16: STEP control
 
 
-#define STEPS_PER_REVOLUTION 200 // 1.8 degree step angle = 200 steps per revolution
+#define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution

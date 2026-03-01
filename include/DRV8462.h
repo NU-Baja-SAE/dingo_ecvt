@@ -7,7 +7,7 @@
 
 
 #define RMT_CHANNEL RMT_CHANNEL_0
-#define MAX_PULSES 1000 // maximum number of pulses to send in one batch (adjust as needed)
+#define MAX_PULSES 2000 // maximum number of pulses to send in one batch (adjust as needed)
 
 class DRV8462
 {
@@ -18,6 +18,7 @@ public:
     void enable();
     void disable();
     void moveSteps(int steps, int speed_hz);
+    void moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec);
     void stop();
     uint16_t readFault();
     void faultDetected();

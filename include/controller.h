@@ -1,6 +1,9 @@
 #include "motor.h"
 #include "pulse_counter.h"
 #include "BajaCan.h"
+#include <string>
+
+
 
 enum ControlMode {
     TORQUE,
@@ -14,6 +17,11 @@ class Controller {
     public:
         Controller();
         void init();
+        TimerHandle_t controller_timer; // Made public for health checks in main.cpp
+        std::string log() {
+            return motor.log();
+        }
+
     private:
         void timerCallback();
         Motor motor;

@@ -216,6 +216,15 @@ void DRV8462::setupRMT()
  */
 void DRV8462::moveSteps(int steps, int speed_hz)
 {
+    // check if last command is still executing, if so, stop it before sending new command
+    rmt_channel_status_result_t status;
+    rmt_get_channel_status(&status);
+        if (status.status[RMT_CHANNEL] == RMT_CHANNEL_IDLE)
+        {
+            Serial.println("Previous command still executing, stopping it before sending new command.");
+            rmt_tx_stop(RMT_CHANNEL);
+        }
+    
     int dir = steps >= 0 ? HIGH : LOW;
     digitalWrite(DIR_PIN, dir); // Set direction
 
@@ -256,3 +265,42 @@ void DRV8462::moveSteps(int steps, int speed_hz)
     
 }
 
+
+/**
+ * @brief Generates a trapezoidal velocity profile to move the motor a specified number of steps with a given maximum speed and acceleration. It calculates the required pulse durations for acceleration, constant speed, and deceleration phases, constructs the RMT items for the step pulses accordingly, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
+ * 
+ * @param steps 
+ * @param max_speed_hz 
+ * @param acceleration_hz_per_sec 
+ */
+void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec)
+{    
+    for (int i = 0; i < steps; i++)
+    {
+        // Calculate the speed for this step based on a trapezoidal profile
+        // This is a simplified example and may not produce a perfect trapezoidal profile
+        int speed_hz;
+        if (i < steps / 3) // Acceleration phase
+        {
+            speed_hz = map(i, 0, steps / 3, 0, max_speed_hz);
+        }
+        else if (i < 2 * steps / 3) // Constant speed phase
+        {
+            speed_hz = max_speed_hz;
+        }
+        else // Deceleration phase
+        {
+            speed_hz = map(i, 2 * steps / 3, steps, max_speed_hz, 0);
+        }
+
+        rmt_item32_t pulse = {{{(uint16_t)(1000000 / speed_hz / 2), 1, (uint16_t)(1000000 / speed_hz / 2), 0}}};
+        this->pulse_buf[i] = pulse;
+    }
+
+
+    // clear previous pulses in RMT buffer
+    rmt_tx_stop(RMT_CHANNEL);
+
+    // Send the items (this is non-blocking)
+    rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
+}

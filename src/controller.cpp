@@ -17,7 +17,7 @@ Controller::Controller() : motor(),
  */
 void Controller::init()
 {
-    TimerHandle_t controller_timer = xTimerCreate("controller_timer",
+    controller_timer = xTimerCreate("controller_timer",
                                                   pdMS_TO_TICKS(CONTROLLER_TIMER_RATE),
                                                   pdTRUE,
                                                   (void *)this, // Pass the Controller instance as timer ID
@@ -63,28 +63,32 @@ void Controller::timerCallback()
         break;
     }
 
-    motorSetpoint = sin(2 * PI * 0.5 * millis() / 1000.0) * 750; // Example: Sine wave setpoint for testing (amplitude of 750 steps, frequency of 0.5 Hz)
+    motorSetpoint = sin(2 * PI * 0.5 * millis() / 1000.0) * 1600; // Example: Sine wave setpoint for testing (amplitude of 750 steps, frequency of 0.5 Hz)
     
+    // step trajectory generation: 300 step square wave with a period of 4 seconds (2 seconds at +300 steps, 2 seconds at -300 steps)
+    motorSetpoint = (millis() / 2000) % 2 == 0 ? 4 * 3200 : 0;
+
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
+    // Serial.printf(">Motorsetpoint_ctrl:%d\n", motorSetpoint);
     
-    CanMessage receivedMessage(0, 0);                    // Create an empty CanMessage object to store the received message
-    esp_err_t ret = can.readMessage(receivedMessage, 0); // Non-blocking read
-    if (ret == ESP_OK)
-    {
-        Serial.printf("Received CAN message with ID: 0x%X\n", receivedMessage.getFrame().identifier);
-        // Process the received CAN message here
-    }
-    else if (ret != ESP_ERR_TIMEOUT)
-    {
-        Serial.printf("Error reading CAN message: %s\n", esp_err_to_name(ret));
-    }
-    else
-    {
-        Serial.println("No CAN message received (timeout)");
-    }
+    // CanMessage receivedMessage(0, 0);                    // Create an empty CanMessage object to store the received message
+    // esp_err_t ret = can.readMessage(receivedMessage, 0); // Non-blocking read
+    // if (ret == ESP_OK)
+    // {
+    //     Serial.printf("Received CAN message with ID: 0x%X\n", receivedMessage.getFrame().identifier);
+    //     // Process the received CAN message here
+    // }
+    // else if (ret != ESP_ERR_TIMEOUT)
+    // {
+    //     Serial.printf("Error reading CAN message: %s\n", esp_err_to_name(ret));
+    // }
+    // else
+    // {
+    //     Serial.println("No CAN message received (timeout)");
+    // }
 
-    int engineCount = enginePulseCounter.getCount();
-    int secondaryCount = secondaryPulseCounter.getCount();
-    Serial.printf("Engine count: %d, Secondary count: %d\n", engineCount, secondaryCount);
+    // int engineCount = enginePulseCounter.getCount();
+    // int secondaryCount = secondaryPulseCounter.getCount();
+    // Serial.printf("Engine count: %d, Secondary count: %d\n", engineCount, secondaryCount);
 }
