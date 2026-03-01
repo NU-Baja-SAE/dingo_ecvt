@@ -1,7 +1,6 @@
 #include "DRV8462.h"
 #include "config.h"
 
-
 DRV8462::DRV8462()
 {
     this->spi = new SPIClass(VSPI);
@@ -20,7 +19,7 @@ void DRV8462::begin()
 {
 
     this->spi->begin(SPI_SCK_PIN, SPI_SDO_PIN, SPI_SDI_PIN, SPI_nSCS_PIN);
-    
+
     pinMode(nSLEEP_PIN, OUTPUT);
     pinMode(ENABLE_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
@@ -32,7 +31,7 @@ void DRV8462::begin()
     // wait t_wake = 1.5 ms
     delayMicroseconds(2000);
     digitalWrite(ENABLE_PIN, LOW); // disable the driver
-    
+
     this->setupRMT();
 
     // Read fault register
@@ -74,7 +73,6 @@ void DRV8462::begin()
     this->spiWriteRegister(SPI_CTRL13, ctrl13);
 }
 
-
 /**
  * @brief Enables the DRV8462 driver by setting the appropriate control register bit and driving the enable pin high.
  *
@@ -87,7 +85,6 @@ void DRV8462::enable()
 
     digitalWrite(ENABLE_PIN, HIGH); // enable the driver
 }
-
 
 /**
  * @brief Writes a 8-bit value to a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, and checks for any faults indicated in the response.
@@ -164,12 +161,10 @@ uint16_t DRV8462::spiReadRegister(uint8_t address)
     return (reg_value);
 }
 
-
 void DRV8462::faultDetected()
 {
     Serial.println("Fault detected!");
 }
-
 
 void DRV8462::disable()
 {
@@ -180,7 +175,8 @@ void DRV8462::disable()
     digitalWrite(ENABLE_PIN, LOW); // disable the driver
 }
 
-void DRV8462::stop() {
+void DRV8462::stop()
+{
     // stop the RMT step pulse generation
     rmt_tx_stop(RMT_CHANNEL);
 }
@@ -207,10 +203,9 @@ void DRV8462::setupRMT()
     rmt_driver_install(RMT_CHANNEL, 0, 0);
 }
 
-
 /**
  * @brief Moves the motor a specified number of steps at a given speed in Hz. It calculates the pulse duration based on the desired speed, constructs the RMT items for the step pulses, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
- * 
+ *
  * @param steps number of steps to move (positive for one direction, negative for the other)
  * @param speed_hz speed of the steps in Hz (steps per second)
  */
@@ -219,17 +214,17 @@ void DRV8462::moveSteps(int steps, int speed_hz)
     // check if last command is still executing, if so, stop it before sending new command
     rmt_channel_status_result_t status;
     rmt_get_channel_status(&status);
-        if (status.status[RMT_CHANNEL] == RMT_CHANNEL_IDLE)
-        {
-            Serial.println("Previous command still executing, stopping it before sending new command.");
-            rmt_tx_stop(RMT_CHANNEL);
-        }
-    
+    if (status.status[RMT_CHANNEL] == RMT_CHANNEL_BUSY)
+    {
+        Serial.println("Previous command still executing, stopping it before sending new command.");
+        rmt_tx_stop(RMT_CHANNEL);
+    }
+
     int dir = steps >= 0 ? HIGH : LOW;
     digitalWrite(DIR_PIN, dir); // Set direction
 
     steps = abs(steps);
-    
+
     if (steps == 0)
         return;
     if (steps > MAX_PULSES)
@@ -244,6 +239,7 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         Serial.println("Error: speed_hz must be greater than 0");
         return;
     }
+
     // Calculate pulse duration in microseconds
     // For a 50% duty cycle: Period = 1,000,000 / speed_hz
     uint32_t duration_us = 1000000 / speed_hz / 2;
@@ -262,19 +258,17 @@ void DRV8462::moveSteps(int steps, int speed_hz)
 
     // Send the items (this is non-blocking)
     rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
-    
 }
-
 
 /**
  * @brief Generates a trapezoidal velocity profile to move the motor a specified number of steps with a given maximum speed and acceleration. It calculates the required pulse durations for acceleration, constant speed, and deceleration phases, constructs the RMT items for the step pulses accordingly, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
- * 
- * @param steps 
- * @param max_speed_hz 
- * @param acceleration_hz_per_sec 
+ *
+ * @param steps
+ * @param max_speed_hz
+ * @param acceleration_hz_per_sec
  */
 void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec)
-{    
+{
     for (int i = 0; i < steps; i++)
     {
         // Calculate the speed for this step based on a trapezoidal profile
@@ -296,7 +290,6 @@ void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_p
         rmt_item32_t pulse = {{{(uint16_t)(1000000 / speed_hz / 2), 1, (uint16_t)(1000000 / speed_hz / 2), 0}}};
         this->pulse_buf[i] = pulse;
     }
-
 
     // clear previous pulses in RMT buffer
     rmt_tx_stop(RMT_CHANNEL);

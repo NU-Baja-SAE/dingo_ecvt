@@ -71,19 +71,21 @@ void Motor::disable()
  */
 void Motor::timerCallback()
 {
+    float timeStep = (float)MOTOR_TIMER_RATE / 1000.0f - 0.00005; // time step in seconds, subract 50us to ensure steps finish before next timer callback
+    
     // calculate the ideal steps and speed
     int stepsToMove = this->setpointPosition - this->currentPosition;
-    int speed_hz = stepsToMove / ((float)MOTOR_TIMER_RATE / 1000.0f); // speed proportional to the number of steps, with a maximum of maxVelocity
+    int speed_hz = stepsToMove / timeStep; // speed proportional to the number of steps, with a maximum of maxVelocity
 
     // limit acceleration
-    float acceleration = (speed_hz - this->currentVelocity) / ((float)MOTOR_TIMER_RATE / 1000.0f);
+    float acceleration = (speed_hz - this->currentVelocity) / timeStep;
     if (acceleration > maxAcceleration)
     {
-        speed_hz = this->currentVelocity + maxAcceleration * ((float)MOTOR_TIMER_RATE / 1000.0f);
+        speed_hz = this->currentVelocity + maxAcceleration * timeStep;
     }
     else if (acceleration < -maxAcceleration)
     {
-        speed_hz = this->currentVelocity - maxAcceleration * ((float)MOTOR_TIMER_RATE / 1000.0f);
+        speed_hz = this->currentVelocity - maxAcceleration * timeStep;
     }
 
     // limit speed
@@ -97,8 +99,8 @@ void Motor::timerCallback()
     }
 
     // set steps to move based on the limited speed
-    if (abs(stepsToMove) > abs(speed_hz * ((float)MOTOR_TIMER_RATE / 1000.0f)))
-        stepsToMove = speed_hz * ((float)MOTOR_TIMER_RATE / 1000.0f);
+    if (abs(stepsToMove) > abs(speed_hz * timeStep))
+        stepsToMove = speed_hz * timeStep;
 
     // implement deceleration by checking if our future position and velocity would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we stop at the setpoint
     float distanceToSetpoint = this->setpointPosition - this->currentPosition;
@@ -106,7 +108,7 @@ void Motor::timerCallback()
     if (abs(distanceToSetpoint) < stoppingDistance)
     {        
         speed_hz = sqrt(2 * maxAcceleration * abs(distanceToSetpoint)) * (distanceToSetpoint > 0 ? 1 : -1);
-        stepsToMove = speed_hz * ((float)MOTOR_TIMER_RATE / 1000.0f);
+        stepsToMove = speed_hz * timeStep;
     }
 
     // prevent overshooting due to step quantization by checking if the steps to move would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we do not overshoot
@@ -126,5 +128,5 @@ void Motor::timerCallback()
 
 std::string Motor::log()
 {
-    return ">pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition) + "\n";   
+    return ">pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
 }
