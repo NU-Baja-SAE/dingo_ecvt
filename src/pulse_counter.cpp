@@ -97,7 +97,7 @@ float PulseCounter::getRPM() {
     if (deltaCount < INT16_MIN) {
         deltaCount += (INT16_MAX - INT16_MIN + 1);
     } else if (deltaCount > INT16_MAX) {
-        deltaCount -= (INT16_MAX - INT16_MIN + 1) ;
+        deltaCount -= (INT16_MAX - INT16_MIN + 1);
     }
 
     // Counter is configured to count both rising and falling edges.
