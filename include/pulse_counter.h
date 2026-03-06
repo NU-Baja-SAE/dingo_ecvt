@@ -11,5 +11,7 @@ public:
 private:
     pcnt_unit_t counterId;
     int magnetCount; // number of magnets on the wheel, used for RPM calculation
-
+    int16_t lastCount = 0;
+    uint32_t lastSampleTimeMs = 0;
+    bool hasLastSample = false;
 };
