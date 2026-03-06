@@ -50,3 +50,21 @@ mr_ray_ecvt/
    ├─ pulse_counter.cpp     # Hall sensor pulse counter implementation
    └─ DRV8462.cpp           # Motor drive implementation
 ```
+
+
+## TODO
+
+- Encoder
+  - Read PWM signal
+  - handle full revolution
+  - encoperate into motor control loop
+
+- Implement pulse counter rpm reading + filtering
+- Implement gear ration control
+- implement brake detection
+  - read brake value from CAN
+- implemement modes
+
+- tune 
+
+- wireing harness

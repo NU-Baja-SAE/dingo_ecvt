@@ -53,10 +53,16 @@ void Controller::timerCallback()
     // Determine motor setpoint based on mode
     int motorSetpoint = 0;
     
+    float engineRPM = enginePulseCounter.getRPM();
+    float secondaryRPM = secondaryPulseCounter.getRPM();
+    float gearRatio = 0;
+    
     switch (this->controlMode)
     {
         case POWER:
         /* code */
+            gearRatio = this->powerGearRatio(engineRPM, secondaryRPM);
+            motorSetpoint = this->gearRatioToSetpoint(gearRatio);
         break;
     
     default:
@@ -71,24 +77,44 @@ void Controller::timerCallback()
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
     // Serial.printf(">Motorsetpoint_ctrl:%d\n", motorSetpoint);
-    
-    // CanMessage receivedMessage(0, 0);                    // Create an empty CanMessage object to store the received message
-    // esp_err_t ret = can.readMessage(receivedMessage, 0); // Non-blocking read
-    // if (ret == ESP_OK)
-    // {
-    //     Serial.printf("Received CAN message with ID: 0x%X\n", receivedMessage.getFrame().identifier);
-    //     // Process the received CAN message here
-    // }
-    // else if (ret != ESP_ERR_TIMEOUT)
-    // {
-    //     Serial.printf("Error reading CAN message: %s\n", esp_err_to_name(ret));
-    // }
-    // else
-    // {
-    //     Serial.println("No CAN message received (timeout)");
-    // }
 
-    // int engineCount = enginePulseCounter.getCount();
-    // int secondaryCount = secondaryPulseCounter.getCount();
-    // Serial.printf("Engine count: %d, Secondary count: %d\n", engineCount, secondaryCount);
+    // send engine RPM and secondary RPM over CAN bus for telemetry
+    CanMessage msg(0x101, motorSetpoint); // Example CAN ID, change as needed
+    can.writeMessage(msg, 0); // Non-blocking write
+
+    float val = (float) (sin(millis() / 1000.0) * 1000);
+    CanMessage msg2(0x100, val); // Example CAN ID, change as needed
+    Serial.printf(">CAN_SIN:%f\n", val);
+    can.writeMessage(msg2, 0); // Non-blocking write
+    
+}
+
+
+
+float Controller::powerGearRatio(float engineRPM, float secondaryRPM)
+{
+    if (secondaryRPM < SLIP_SPEED) { // belt is slipping, should either be in idle, or lerp between idle and low based on engine RPM
+        if (engineRPM < ENGINE_ENGAGE_RPM ) {
+            return 100; // idle == high gear ratio
+        } else {
+            float t = (engineRPM - ENGINE_ENGAGE_RPM) / (ENGINE_IDEAL_RPM - ENGINE_ENGAGE_RPM);
+            return 100 + t * (LOW_GEAR - 100); // lerp between idle and low gear ratio
+        }
+
+    } else if (secondaryRPM < CRUISE_LOW) { // belt is not slipping, but engine RPM is still below ideal
+        return LOW_GEAR; 
+
+    } else  if (secondaryRPM < CRUISE_HIGH) { // car is in main range, should lerp between low and high gear based on secondary rpm
+        float t = (secondaryRPM - CRUISE_LOW) / (CRUISE_HIGH - CRUISE_LOW);
+        return LOW_GEAR + t * (HIGH_GEAR - LOW_GEAR);
+
+    } else { // car is going fast, should be in highest gear
+        return HIGH_GEAR;
+    }
+}
+
+int Controller::gearRatioToSetpoint(int gearRatio)
+{
+    // This function should convert the desired gear ratio to a motor setpoint in units of steps. The exact conversion will depend on the specifics of the ECVT design, such as the relationship between motor position and gear ratio. For now, we will just return a placeholder value.
+    return 0; // TODO: implement this function based on the ECVT design
 }
