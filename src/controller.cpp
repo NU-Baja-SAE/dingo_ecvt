@@ -78,12 +78,12 @@ void Controller::timerCallback()
     motor.setSetpoint(motorSetpoint);
     // Serial.printf(">Motorsetpoint_ctrl:%d\n", motorSetpoint);
 
-    // send engine RPM and secondary RPM over CAN bus for telemetry
-    CanMessage msg(0x101, motorSetpoint); // Example CAN ID, change as needed
+    // send motor setpoint and test sine-wave telemetry over CAN bus
+    CanMessage msg(0x101, motorSetpoint); // sends current motor setpoint (example CAN ID, change as needed)
     can.writeMessage(msg, 0); // Non-blocking write
 
     float val = (float) (sin(millis() / 1000.0) * 1000);
-    CanMessage msg2(0x100, val); // Example CAN ID, change as needed
+    CanMessage msg2(0x100, val); // sends synthetic sine-wave telemetry value (example CAN ID, change as needed)
     Serial.printf(">CAN_SIN:%f\n", val);
     can.writeMessage(msg2, 0); // Non-blocking write
     
