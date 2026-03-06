@@ -9,5 +9,6 @@ void setup() {
 }
 
 void loop() {
-  delay(1000);
+  delay(50);
+  Serial.println(controller.log().c_str());
 }

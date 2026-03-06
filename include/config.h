@@ -40,4 +40,23 @@
 #define STEP_PIN            16    // GPIO16: STEP control
 
 
-#define STEPS_PER_REVOLUTION 200 // 1.8 degree step angle = 200 steps per revolution
+#define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
+
+
+
+// SECTION: Controller configurations
+
+#define IDLE_SHEAVE_POSITION 0 // in units of encoder counts, where 0 is the idle position, and the positive direction is towards the engine
+
+#define ENGINE_IDLE_RPM 1600
+#define ENGINE_ENGAGE_RPM 2000
+#define ENGINE_IDEAL_RPM 3000
+#define ENGINE_MAX_RPM 3600
+
+#define LOW_GEAR 3.6
+#define HIGH_GEAR 0.9
+
+// secondary rpm thresholds for gear shifting, calculated based on engine rpm and gear ratios
+#define SLIP_SPEED ENGINE_ENGAGE_RPM / LOW_GEAR 
+#define CRUISE_LOW ENGINE_IDEAL_RPM / LOW_GEAR
+#define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
