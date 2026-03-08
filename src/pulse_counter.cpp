@@ -58,15 +58,59 @@ int PulseCounter::getCount() {
  */
 void PulseCounter::resetCount() {
     pcnt_counter_clear(counterId);
+    hasLastSample = false;
+    lastCount = 0;
+    lastSampleTimeMs = 0;
 }
 
 
 /**
- * @brief Calculates the RPM based on the current count and magnet count
+ * @brief Calculates the RPM based on the current count, magnet count, and time 
  * 
  * @return float RPM value
  */
 float PulseCounter::getRPM() {
-   return 0; // TODO: implement RPM calculation
+    if (magnetCount <= 0) {
+        return 0.0f;
+    }
+
+    int16_t currentCount;
+    pcnt_get_counter_value(counterId, &currentCount);
+
+    uint32_t currentTimeMs = millis();
+
+    if (!hasLastSample) {
+        lastCount = currentCount;
+        lastSampleTimeMs = currentTimeMs;
+        hasLastSample = true;
+        return 0.0f;
+    }
+
+    uint32_t elapsedMs = currentTimeMs - lastSampleTimeMs;
+    if (elapsedMs == 0) {
+        return 0.0f;
+    }
+
+    int32_t deltaCount = static_cast<int32_t>(currentCount) - static_cast<int32_t>(lastCount);
+
+    // Correct for int16 counter wrap between samples.
+    if (deltaCount < INT16_MIN) {
+        deltaCount += (INT16_MAX - INT16_MIN + 1);
+    } else if (deltaCount > INT16_MAX) {
+        deltaCount -= (INT16_MAX - INT16_MIN + 1);
+    }
+
+    // Counter is configured to count both rising and falling edges.
+    constexpr float edgesPerMagnet = 2.0f;
+    float pulsesPerRevolution = static_cast<float>(magnetCount) * edgesPerMagnet;
+
+    float rpm = 0.0f;
+    if (deltaCount > 0 && pulsesPerRevolution > 0.0f) {
+        rpm = (static_cast<float>(deltaCount) * 60000.0f) / (pulsesPerRevolution * static_cast<float>(elapsedMs));
+    }
+
+    lastCount = currentCount;
+    lastSampleTimeMs = currentTimeMs;
+    return rpm;
 
 }
