@@ -111,6 +111,9 @@ float PulseCounter::getRPM() {
 
     lastCount = currentCount;
     lastSampleTimeMs = currentTimeMs;
+
+    // apply low-pass filter to smooth out RPM readings
+    rpm = rpmFilter.filter(rpm);
     return rpm;
 
 }
