@@ -1,4 +1,4 @@
-# ECVT Code for Mr Ray
+# ECVT Code for Dingo
 
 ## Overview
 
@@ -27,7 +27,7 @@ This project implements a closed-loop control system for managing the CVT sheave
 ## Repository structure
 
 ```
-mr_ray_ecvt/
+dingo_ecvt/
 ├─ platformio.ini           # PlatformIO project configuration (board, framework, build flags)
 ├─ README.md                # Project overview and documentation
 ├─ include/                 # Public headers for the main application
