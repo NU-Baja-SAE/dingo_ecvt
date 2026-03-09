@@ -55,15 +55,12 @@ void Controller::timerCallback()
     int32_t motorSetpoint = 0;
     
     float engineRPM = enginePulseCounter.getRPM();
-    float secondaryRPM = secondaryPulseCounter.getRPM();
-    float gearRatio = 0;
     
     switch (this->controlMode)
     {
         case POWER:
         /* code */
-            gearRatio = this->powerGearRatio(engineRPM, secondaryRPM);
-            motorSetpoint = this->gearRatioToSetpoint(gearRatio);
+            motorSetpoint = this->rpmToSetpoint(engineRPM);
         break;
     
     default:
@@ -77,48 +74,39 @@ void Controller::timerCallback()
     CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM); 
     can.writeMessage(engineRpmMsg, 0);
 
-    CanMessage secondaryRpmMsg(CanDatabase::SECONDARY_RPM.id, secondaryRPM); 
-    can.writeMessage(secondaryRpmMsg, 0);
-
     CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
     can.writeMessage(motorSetpointMsg, 0);
 
 }
 
-
-
-float Controller::powerGearRatio(float engineRPM, float secondaryRPM)
+int Controller::rpmToSetpoint(float rpm)
 {
-    if (secondaryRPM < SLIP_SPEED) { // belt is slipping, should either be in idle, or lerp between idle and low based on engine RPM
-        if (engineRPM < ENGINE_ENGAGE_RPM ) {
-            return 100; // idle == high gear ratio
-        } else {
-            float t = (engineRPM - ENGINE_ENGAGE_RPM) / (ENGINE_IDEAL_RPM - ENGINE_ENGAGE_RPM);
-            return 100 + t * (LOW_GEAR - 100); // lerp between idle and low gear ratio
-        }
+    static float last_Error = 0;
 
-    } else if (secondaryRPM < CRUISE_LOW) { // belt is not slipping, but engine RPM is still below ideal
-        return LOW_GEAR; 
+    if (rpm < ENGINE_ENGAGE_RPM) // if the rpm is less than the idle rpm
+    {
+        return MIN_MOTOR_SETPOINT;
 
-    } else  if (secondaryRPM < CRUISE_HIGH) { // car is in main range, should lerp between low and high gear based on secondary rpm
-        float t = (secondaryRPM - CRUISE_LOW) / (CRUISE_HIGH - CRUISE_LOW);
-        return LOW_GEAR + t * (HIGH_GEAR - LOW_GEAR);
-
-    } else { // car is going fast, should be in highest gear
-        return HIGH_GEAR;
     }
-}
+    // else if (rpm > MAX_RPM) // if the rpm is greater than the max rpm
+    // {
+    //     return MAX_SHEAVE_SETPOINT;
+    // }
+    else // P controller for RPM setpoint
+    {
 
+        float rpmError = ENGINE_IDEAL_RPM - rpm; // positive error means the rpm is too low
 
-// PID controler to convert desired gear ratio to motor setpoint
-int Controller::gearRatioToSetpoint(float gearRatio)
-{
-    if (gearRatio < HIGH_GEAR) {
-        return MAX_MOTOR_SETPOINT;
-    } else if (gearRatio > 50) {
-        return MIN_MOTOR_SETPOINT; 
-    } 
-    
-    int setpoint = this->gearRatioPID.calculate(gearRatio, enginePulseCounter.getRPM() / secondaryPulseCounter.getRPM(), CONTROLLER_TIMER_RATE / 1000.0);
-    return constrain(setpoint, MIN_MOTOR_SETPOINT, MAX_MOTOR_SETPOINT);
+        float d_error = last_Error - rpmError; // Derivative error
+
+        float d_setpoint = -rpmError * RPM_Kp + d_error * RPM_Kd; // negative because lower rpm means more negative sheve position position
+
+        float low_setpoint = lerp(LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT, (rpm - ENGINE_IDLE_RPM) / (ENGINE_MAX_RPM - ENGINE_IDLE_RPM));
+
+        low_setpoint = clamp(low_setpoint, LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT);
+
+        last_Error = rpmError;
+
+        return clamp(this->motor.getPosition() + d_setpoint, low_setpoint, MAX_MOTOR_SETPOINT);
+    }
 }

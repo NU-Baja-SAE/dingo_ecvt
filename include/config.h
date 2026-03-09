@@ -63,3 +63,15 @@
 
 #define MIN_MOTOR_SETPOINT 0
 #define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 10 // 5 mm pitch leadscrew, 50mm travel = 10 revolutions
+
+
+#define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage
+#define LOW_MAX_SETPOINT 100 // tune this, point sheave is fully engaged at low gear
+
+#define clamp(x, min, max) (x < min ? min : x > max ? max : x)
+#define lerp(a, b, k) (a + (b - a) * k)
+
+
+#define RPM_Kp 0.002
+#define RPM_Kd 0
+
