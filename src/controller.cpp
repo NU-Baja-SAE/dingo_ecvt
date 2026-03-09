@@ -70,11 +70,6 @@ void Controller::timerCallback()
         break;
     }
 
-    motorSetpoint = sin(2 * PI * 0.5 * millis() / 1000.0) * 1600; // Example: Sine wave setpoint for testing (amplitude of 750 steps, frequency of 0.5 Hz)
-    
-    // step trajectory generation: 300 step square wave with a period of 4 seconds (2 seconds at +300 steps, 2 seconds at -300 steps)
-    // motorSetpoint = (millis() / 2000) % 2 == 0 ? 4 * 3200 : 0;
-
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
 
@@ -88,8 +83,6 @@ void Controller::timerCallback()
     CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
     can.writeMessage(motorSetpointMsg, 0);
 
-
-    
 }
 
 
@@ -116,8 +109,16 @@ float Controller::powerGearRatio(float engineRPM, float secondaryRPM)
     }
 }
 
-int Controller::gearRatioToSetpoint(int gearRatio)
+
+// PID controler to convert desired gear ratio to motor setpoint
+int Controller::gearRatioToSetpoint(float gearRatio)
 {
-    // This function should convert the desired gear ratio to a motor setpoint in units of steps. The exact conversion will depend on the specifics of the ECVT design, such as the relationship between motor position and gear ratio. For now, we will just return a placeholder value.
-    return 0; // TODO: implement this function based on the ECVT design
+    if (gearRatio < HIGH_GEAR) {
+        return MAX_MOTOR_SETPOINT;
+    } else if (gearRatio > 50) {
+        return MIN_MOTOR_SETPOINT; 
+    } 
+    
+    int setpoint = this->gearRatioPID.calculate(gearRatio, enginePulseCounter.getRPM() / secondaryPulseCounter.getRPM(), CONTROLLER_TIMER_RATE / 1000.0);
+    return constrain(setpoint, MIN_MOTOR_SETPOINT, MAX_MOTOR_SETPOINT);
 }
