@@ -204,5 +204,11 @@
 // Register 0x10 : CTRL13 Register
 #define VREF_MASK             (0x02)        // Voltage Reference Setting
 
+// Register 0x28 : ATQ_CTRL10 Register
+#define ATQ_EN_MASK           (0x80)        // Auto torque enable
+#define LRN_START_MASK        (0x40)        // Auto torque learning start
+#define ATQ_FRZ_MASK          (0x38)        // Auto torque freeze threshold setting
+#define ATQ_AVG_MASK          (0x07)        // Auto torque averaging setting
+
 
 #endif // DRV8462_REGMAP_H_

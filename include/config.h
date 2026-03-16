@@ -39,7 +39,8 @@
 #define DIR_PIN             13    // GPIO17: DIR control
 #define STEP_PIN            16    // GPIO16: STEP control
 
-#define MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
+#define RUN_MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
+#define HOLD_MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
 #define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
 
 
