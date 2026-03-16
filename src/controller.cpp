@@ -65,6 +65,10 @@ void Controller::timerCallback()
             gearRatio = this->powerGearRatio(engineRPM, secondaryRPM);
             motorSetpoint = this->gearRatioToSetpoint(gearRatio);
         break;
+        case DEBUG:
+
+            motorSetpoint = constrain(map(millis(), 0, 1000, 0, STEPS_PER_REVOLUTION), 0, STEPS_PER_REVOLUTION );
+        break;
     
     default:
         break;
@@ -73,6 +77,12 @@ void Controller::timerCallback()
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
 
+    // check for motor faults
+    uint16_t fault = motor.getFault();
+    if (fault != 0) {
+        Serial.printf("Motor fault detected! Fault code: 0x%X\n", fault);
+    }
+    
     // send engine RPM and secondary RPM over CAN bus for telemetry
     CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM); 
     can.writeMessage(engineRpmMsg, 0);

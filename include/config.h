@@ -10,11 +10,11 @@
 
 // SECTION: Pulse counter configurations
 
-#define PRIMARY_HALL_PIN GPIO_NUM_26
+#define PRIMARY_HALL_PIN GPIO_NUM_27
 #define PRIMARY_COUNTER_ID PCNT_UNIT_1
-#define PRIMARY_MAGNET_COUNT 6
+#define PRIMARY_MAGNET_COUNT 3
 
-#define SECONDARY_HALL_PIN GPIO_NUM_27
+#define SECONDARY_HALL_PIN GPIO_NUM_26
 #define SECONDARY_COUNTER_ID PCNT_UNIT_3
 #define SECONDARY_MAGNET_COUNT 6
 
@@ -39,7 +39,7 @@
 #define DIR_PIN             13    // GPIO17: DIR control
 #define STEP_PIN            16    // GPIO16: STEP control
 
-
+#define MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
 #define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
 
 
@@ -62,4 +62,4 @@
 #define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
 
 #define MIN_MOTOR_SETPOINT 0
-#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 10 // 5 mm pitch leadscrew, 50mm travel = 10 revolutions
+#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 8 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions

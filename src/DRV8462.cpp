@@ -57,11 +57,11 @@ void DRV8462::begin()
         this->faultDetected();
     }
 
-    // write to CTRL11 to set current to 10% (0.1 * 255 = 25.5 ~ 26)
-    this->spiWriteRegister(SPI_CTRL11, 26); // set torque to 10%
+    // write to CTRL11 to set current to 50% 
+    this->spiWriteRegister(SPI_CTRL11, MOTOR_CURRENT); 
     // read CTRL11 to make sure torque setting is correct
     uint16_t ctrl11Reg = this->spiReadRegister(SPI_CTRL11);
-    if (ctrl11Reg != 26)
+    if (ctrl11Reg != MOTOR_CURRENT)
     {
         Serial.printf("Failed to set torque! CTRL11 Register: 0x%X\n", ctrl11Reg);
         this->faultDetected();
@@ -220,7 +220,7 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         rmt_tx_stop(RMT_CHANNEL);
     }
 
-    int dir = steps >= 0 ? HIGH : LOW;
+    int dir = steps >= 0 ? LOW : HIGH;
     digitalWrite(DIR_PIN, dir); // Set direction
 
     steps = abs(steps);
