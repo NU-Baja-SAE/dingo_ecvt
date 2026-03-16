@@ -11,6 +11,40 @@ DRV8462::~DRV8462()
     delete this->spi;
 }
 
+void DRV8462::setupAutoTorque()
+{
+    // Configure auto-torque current window around the existing 10% torque setup.
+    // These values can be tuned later per motor/load profile.
+    constexpr uint8_t atq_trq_min = 26; // ~10%
+    constexpr uint8_t atq_trq_max = 52; // ~20%
+
+    this->spiWriteRegister(SPI_ATQ_CTRL11, atq_trq_min);
+    this->spiWriteRegister(SPI_ATQ_CTRL12, atq_trq_max);
+
+    if (this->spiReadRegister(SPI_ATQ_CTRL11) != atq_trq_min)
+    {
+        Serial.println("Failed to set ATQ_TRQ_MIN in ATQ_CTRL11");
+        this->faultDetected();
+    }
+
+    if (this->spiReadRegister(SPI_ATQ_CTRL12) != atq_trq_max)
+    {
+        Serial.println("Failed to set ATQ_TRQ_MAX in ATQ_CTRL12");
+        this->faultDetected();
+    }
+
+    uint16_t atq_ctrl10 = this->spiReadRegister(SPI_ATQ_CTRL10);
+    atq_ctrl10 |= ATQ_EN_MASK;
+    this->spiWriteRegister(SPI_ATQ_CTRL10, atq_ctrl10);
+
+    uint16_t atq_ctrl10_verify = this->spiReadRegister(SPI_ATQ_CTRL10);
+    if ((atq_ctrl10_verify & ATQ_EN_MASK) == 0)
+    {
+        Serial.println("Failed to enable auto torque (ATQ_EN)");
+        this->faultDetected();
+    }
+}
+
 /**
  * @brief Sets up the DRV8462 driver by initializing SPI communication, configuring control registers, and setting up the RMT peripheral for step pulse generation.
  *
@@ -48,20 +82,20 @@ void DRV8462::begin()
     this->spiWriteRegister(SPI_CTRL9, ctrl9);
 
     // write to CTRL10 to set idle current to 10% (0.1 * 255 = 25.5 ~ 26)
-    this->spiWriteRegister(SPI_CTRL10, 26); // set idle current to 10%
+    this->spiWriteRegister(SPI_CTRL10, HOLD_MOTOR_CURRENT); // set idle current to 10%
     // read CTRL10 to make sure idle current setting is correct
     uint16_t ctrl10Reg = this->spiReadRegister(SPI_CTRL10);
-    if (ctrl10Reg != 26)
+    if (ctrl10Reg != HOLD_MOTOR_CURRENT)
     {
         Serial.printf("Failed to set idle current! CTRL10 Register: 0x%X\n", ctrl10Reg);
         this->faultDetected();
     }
 
-    // write to CTRL11 to set current to 10% (0.1 * 255 = 25.5 ~ 26)
-    this->spiWriteRegister(SPI_CTRL11, 26); // set torque to 10%
+    // write to CTRL11 to set current to 50% 
+    this->spiWriteRegister(SPI_CTRL11, RUN_MOTOR_CURRENT); 
     // read CTRL11 to make sure torque setting is correct
     uint16_t ctrl11Reg = this->spiReadRegister(SPI_CTRL11);
-    if (ctrl11Reg != 26)
+    if (ctrl11Reg != RUN_MOTOR_CURRENT)
     {
         Serial.printf("Failed to set torque! CTRL11 Register: 0x%X\n", ctrl11Reg);
         this->faultDetected();
@@ -71,6 +105,8 @@ void DRV8462::begin()
     uint16_t ctrl13 = this->spiReadRegister(SPI_CTRL13);
     ctrl13 |= VREF_MASK; // set VREF bit
     this->spiWriteRegister(SPI_CTRL13, ctrl13);
+
+    this->setupAutoTorque();
 }
 
 /**
@@ -220,7 +256,7 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         rmt_tx_stop(RMT_CHANNEL);
     }
 
-    int dir = steps >= 0 ? HIGH : LOW;
+    int dir = steps >= 0 ? LOW : HIGH;
     digitalWrite(DIR_PIN, dir); // Set direction
 
     steps = abs(steps);

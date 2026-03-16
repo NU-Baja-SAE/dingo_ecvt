@@ -130,3 +130,9 @@ std::string Motor::log()
 {
     return ">pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
 }
+
+
+uint16_t Motor::getFault()
+{
+    return this->driver.readFault();
+}

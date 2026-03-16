@@ -8,6 +8,9 @@ public:
     int getCount();
     float getRPM();
     void resetCount();
+    float getFilteredRPM() {
+        return filteredRPM;
+    }
 
 private:
     pcnt_unit_t counterId;
@@ -15,5 +18,6 @@ private:
     int16_t lastCount = 0;
     uint32_t lastSampleTimeMs = 0;
     bool hasLastSample = false;
-    LowPassFilter rpmFilter = LowPassFilter(0.2); // low-pass filter with alpha = 0.1 for smoothing RPM readings
+    LowPassFilter rpmFilter = LowPassFilter(0.2);
+    float filteredRPM = 0.0f;
 };
