@@ -18,6 +18,7 @@ Controller::Controller() : motor(),
  */
 void Controller::init()
 {
+    this->last_Error = 0.0f;
     controller_timer = xTimerCreate("controller_timer",
                                                   pdMS_TO_TICKS(CONTROLLER_TIMER_RATE),
                                                   pdTRUE,
@@ -91,7 +92,6 @@ void Controller::timerCallback()
 
 int Controller::rpmToSetpoint(float rpm)
 {
-    static float last_Error = 0;
 
     if (rpm < ENGINE_ENGAGE_RPM) // if the rpm is less than the idle rpm
     {
@@ -107,7 +107,7 @@ int Controller::rpmToSetpoint(float rpm)
 
         float rpmError = ENGINE_IDEAL_RPM - rpm; // positive error means the rpm is too low
 
-        float d_error = last_Error - rpmError; // Derivative error
+        float d_error = this->last_Error - rpmError; // Derivative error
 
         float d_setpoint = -rpmError * RPM_Kp + d_error * RPM_Kd; // negative because lower rpm means more negative sheve position position
 
@@ -115,7 +115,7 @@ int Controller::rpmToSetpoint(float rpm)
 
         low_setpoint = clamp(low_setpoint, LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT);
 
-        last_Error = rpmError;
+        this->last_Error = rpmError;
 
         // Serial.printf(">rpmError:%.2f\nd_error:%.2f\nlow_setpoint:%.2f\nd_setpoint:%.2f\n", rpmError, d_error, low_setpoint, d_setpoint);
 
