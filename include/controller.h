@@ -46,6 +46,7 @@ class Controller {
         void timerCallback();
         float powerGearRatio(float engineRPM, float secondaryRPM);
         int gearRatioToSetpoint(float gearRatio);
+        int rpmToSetpoint(float engineRPM);
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;

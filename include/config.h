@@ -39,8 +39,8 @@
 #define DIR_PIN             13    // GPIO17: DIR control
 #define STEP_PIN            16    // GPIO16: STEP control
 
-#define RUN_MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
-#define HOLD_MOTOR_CURRENT 125 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
+#define RUN_MOTOR_CURRENT 200 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
+#define HOLD_MOTOR_CURRENT 200 // value from 0-255 to set the motor current, where 255 corresponds to the maximum current
 #define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
 
 
@@ -63,16 +63,16 @@
 #define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
 
 #define MIN_MOTOR_SETPOINT 0
-#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 8 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions
+#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 9 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
 
 
 #define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage
-#define LOW_MAX_SETPOINT 100 // tune this, point sheave is fully engaged at low gear
+#define LOW_MAX_SETPOINT 5000 // tune this, point sheave is fully engaged at low gear
 
 #define clamp(x, min, max) (x < min ? min : x > max ? max : x)
 #define lerp(a, b, k) (a + (b - a) * k)
 
 
-#define RPM_Kp 0.002
+#define RPM_Kp 3.0
 #define RPM_Kd 0
 
