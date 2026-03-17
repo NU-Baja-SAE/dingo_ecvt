@@ -8,7 +8,7 @@ public:
     int getCount();
     float getRPM();
     void resetCount();
-    float getFilteredRPM() {
+    float getFilteredRPM() const {
         return filteredRPM;
     }
 
