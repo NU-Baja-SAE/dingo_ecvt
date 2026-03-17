@@ -47,6 +47,7 @@ class Controller {
         float powerGearRatio(float engineRPM, float secondaryRPM);
         int gearRatioToSetpoint(float gearRatio);
         int rpmToSetpoint(float engineRPM);
+        float last_Error;
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
