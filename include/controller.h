@@ -4,12 +4,31 @@
 #include <string>
 
 
+class PID {
+    public:
+        PID(float kp, float ki, float kd) : kp(kp), ki(ki), kd(kd), prevError(0), integral(0) {}
+        float calculate(float setpoint, float measured, float dt) {
+            float error = setpoint - measured;
+            integral += error * dt;
+            float derivative = (error - prevError) / dt;
+            prevError = error;
+            return kp * error + ki * integral + kd * derivative;
+        }
+    private:
+        float kp;
+        float ki;
+        float kd;
+        float prevError;
+        float integral;
+};
+
 
 enum ControlMode {
     TORQUE,
     POWER,
     MANUAL,
     BRAKE,
+    DEBUG
 };
 
 
@@ -19,16 +38,21 @@ class Controller {
         void init();
         TimerHandle_t controller_timer; // Made public for health checks in main.cpp
         std::string log() {
-            return motor.log();
+            return motor.log() + "\n>Engine_RPM:" + std::to_string(enginePulseCounter.getFilteredRPM()) + 
+                   "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM());
         }
 
     private:
         void timerCallback();
         float powerGearRatio(float engineRPM, float secondaryRPM);
-        int gearRatioToSetpoint(int gearRatio);
+        int gearRatioToSetpoint(float gearRatio);
+        int rpmToSetpoint(float engineRPM);
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
         BajaCan can;
-        ControlMode controlMode = POWER; // default to power mode
+        ControlMode controlMode = POWER; 
+        PID gearRatioPID = PID(20.0, 0.0, 0.0); 
 };
+
+

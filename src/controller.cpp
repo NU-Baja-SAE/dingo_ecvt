@@ -18,6 +18,7 @@ Controller::Controller() : motor(),
  */
 void Controller::init()
 {
+    this->last_Error = 0.0f;
     controller_timer = xTimerCreate("controller_timer",
                                                   pdMS_TO_TICKS(CONTROLLER_TIMER_RATE),
                                                   pdTRUE,
@@ -55,69 +56,69 @@ void Controller::timerCallback()
     int32_t motorSetpoint = 0;
     
     float engineRPM = enginePulseCounter.getRPM();
-    float secondaryRPM = secondaryPulseCounter.getRPM();
-    float gearRatio = 0;
     
     switch (this->controlMode)
     {
         case POWER:
         /* code */
-            gearRatio = this->powerGearRatio(engineRPM, secondaryRPM);
-            motorSetpoint = this->gearRatioToSetpoint(gearRatio);
+            motorSetpoint = this->rpmToSetpoint(engineRPM);
+        break;
+        case DEBUG:
+
+            motorSetpoint = constrain(map(millis(), 0, 1000, 0, STEPS_PER_REVOLUTION), 0, STEPS_PER_REVOLUTION );
         break;
     
     default:
         break;
     }
 
-    motorSetpoint = sin(2 * PI * 0.5 * millis() / 1000.0) * 1600; // Example: Sine wave setpoint for testing (amplitude of 750 steps, frequency of 0.5 Hz)
-    
-    // step trajectory generation: 300 step square wave with a period of 4 seconds (2 seconds at +300 steps, 2 seconds at -300 steps)
-    // motorSetpoint = (millis() / 2000) % 2 == 0 ? 4 * 3200 : 0;
-
     // set motor setpoint
     motor.setSetpoint(motorSetpoint);
 
+    // check for motor faults
+    uint16_t fault = motor.getFault();
+    if (fault != 0) {
+        Serial.printf("Motor fault detected! Fault code: 0x%X\n", fault);
+    }
+    
     // send engine RPM and secondary RPM over CAN bus for telemetry
     CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM); 
     can.writeMessage(engineRpmMsg, 0);
 
-    CanMessage secondaryRpmMsg(CanDatabase::SECONDARY_RPM.id, secondaryRPM); 
-    can.writeMessage(secondaryRpmMsg, 0);
-
     CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
     can.writeMessage(motorSetpointMsg, 0);
 
-
-    
 }
 
-
-
-float Controller::powerGearRatio(float engineRPM, float secondaryRPM)
+int Controller::rpmToSetpoint(float rpm)
 {
-    if (secondaryRPM < SLIP_SPEED) { // belt is slipping, should either be in idle, or lerp between idle and low based on engine RPM
-        if (engineRPM < ENGINE_ENGAGE_RPM ) {
-            return 100; // idle == high gear ratio
-        } else {
-            float t = (engineRPM - ENGINE_ENGAGE_RPM) / (ENGINE_IDEAL_RPM - ENGINE_ENGAGE_RPM);
-            return 100 + t * (LOW_GEAR - 100); // lerp between idle and low gear ratio
-        }
 
-    } else if (secondaryRPM < CRUISE_LOW) { // belt is not slipping, but engine RPM is still below ideal
-        return LOW_GEAR; 
+    if (rpm < ENGINE_ENGAGE_RPM) // if the rpm is less than the idle rpm
+    {
+        return MIN_MOTOR_SETPOINT;
 
-    } else  if (secondaryRPM < CRUISE_HIGH) { // car is in main range, should lerp between low and high gear based on secondary rpm
-        float t = (secondaryRPM - CRUISE_LOW) / (CRUISE_HIGH - CRUISE_LOW);
-        return LOW_GEAR + t * (HIGH_GEAR - LOW_GEAR);
-
-    } else { // car is going fast, should be in highest gear
-        return HIGH_GEAR;
     }
-}
+    // else if (rpm > MAX_RPM) // if the rpm is greater than the max rpm
+    // {
+    //     return MAX_SHEAVE_SETPOINT;
+    // }
+    else // P controller for RPM setpoint
+    {
 
-int Controller::gearRatioToSetpoint(int gearRatio)
-{
-    // This function should convert the desired gear ratio to a motor setpoint in units of steps. The exact conversion will depend on the specifics of the ECVT design, such as the relationship between motor position and gear ratio. For now, we will just return a placeholder value.
-    return 0; // TODO: implement this function based on the ECVT design
+        float rpmError = ENGINE_IDEAL_RPM - rpm; // positive error means the rpm is too low
+
+        float d_error = this->last_Error - rpmError; // Derivative error
+
+        float d_setpoint = -rpmError * RPM_Kp + d_error * RPM_Kd; // negative because lower rpm means more negative sheve position position
+
+        float low_setpoint = lerp(LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT, (rpm - ENGINE_ENGAGE_RPM) / (ENGINE_MAX_RPM - ENGINE_ENGAGE_RPM));
+
+        low_setpoint = clamp(low_setpoint, LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT);
+
+        this->last_Error = rpmError;
+
+        // Serial.printf(">rpmError:%.2f\nd_error:%.2f\nlow_setpoint:%.2f\nd_setpoint:%.2f\n", rpmError, d_error, low_setpoint, d_setpoint);
+
+        return clamp(this->motor.getPosition() + d_setpoint, low_setpoint, MAX_MOTOR_SETPOINT);
+    }
 }

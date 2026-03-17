@@ -12,6 +12,7 @@ class Motor {
         int getPosition();
         void setSetpoint(int position);
         std::string log();
+        uint16_t getFault();
         
     private:
         void startTimer();

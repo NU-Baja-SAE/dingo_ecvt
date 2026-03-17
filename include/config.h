@@ -10,11 +10,11 @@
 
 // SECTION: Pulse counter configurations
 
-#define PRIMARY_HALL_PIN GPIO_NUM_26
+#define PRIMARY_HALL_PIN GPIO_NUM_27
 #define PRIMARY_COUNTER_ID PCNT_UNIT_1
-#define PRIMARY_MAGNET_COUNT 6
+#define PRIMARY_MAGNET_COUNT 3
 
-#define SECONDARY_HALL_PIN GPIO_NUM_27
+#define SECONDARY_HALL_PIN GPIO_NUM_26
 #define SECONDARY_COUNTER_ID PCNT_UNIT_3
 #define SECONDARY_MAGNET_COUNT 6
 
@@ -39,7 +39,9 @@
 #define DIR_PIN             13    // GPIO17: DIR control
 #define STEP_PIN            16    // GPIO16: STEP control
 
-
+// value from 0-255 to set the motor current
+#define RUN_MOTOR_CURRENT 200 
+#define HOLD_MOTOR_CURRENT 200 
 #define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
 
 
@@ -60,3 +62,18 @@
 #define SLIP_SPEED ENGINE_ENGAGE_RPM / LOW_GEAR 
 #define CRUISE_LOW ENGINE_IDEAL_RPM / LOW_GEAR
 #define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
+
+#define MIN_MOTOR_SETPOINT 0
+#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 9 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
+
+
+#define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage
+#define LOW_MAX_SETPOINT 5000 // tune this, point sheave is fully engaged at low gear
+
+#define clamp(x, min, max) (x < min ? min : x > max ? max : x)
+#define lerp(a, b, k) (a + (b - a) * k)
+
+
+#define RPM_Kp 3.0
+#define RPM_Kd 0
+
