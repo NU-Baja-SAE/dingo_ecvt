@@ -210,5 +210,14 @@
 #define ATQ_FRZ_MASK          (0x38)        // Auto torque freeze threshold setting
 #define ATQ_AVG_MASK          (0x07)        // Auto torque averaging setting
 
+// Register 0x22 : ATQ_CTRL4 Register
+#define ATQ_LRN_MIN_CURRENT_MASK   (0xF8)   // Learning initial current code [7:3]
+#define ATQ_LRN_CONST2_MSB_MASK    (0x07)   // ATQ_LRN_CONST2 upper bits [2:0]
+
+// Register 0x2D : ATQ_CTRL15 Register
+#define ATQ_ERROR_TRUNCATE_MASK    (0xF0)   // Error truncation [7:4]
+#define ATQ_LRN_STEP_FIELD_MASK    (0x0C)   // Learning step selection [3:2]
+#define ATQ_LRN_CYCLE_FIELD_MASK   (0x03)   // Learning cycle selection [1:0]
+
 
 #endif // DRV8462_REGMAP_H_

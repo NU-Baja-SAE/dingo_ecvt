@@ -26,7 +26,12 @@ public:
 private:
     rmt_item32_t pulse_buf[MAX_PULSES];
     SPIClass *spi;
+    bool atqLearningPending;
+    bool atqLearningInProgress;
+    bool atqLearningComplete;
+    unsigned long atqLearningStartMs;
     void setupAutoTorque();
+    void serviceAutoTorqueLearning(bool motorIsStepping);
     void spiWriteRegister(uint8_t address, uint16_t data);
     uint16_t spiReadRegister(uint8_t address);
     void setupRMT();

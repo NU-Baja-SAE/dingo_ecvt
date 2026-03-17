@@ -4,6 +4,10 @@
 DRV8462::DRV8462()
 {
     this->spi = new SPIClass(VSPI);
+    this->atqLearningPending = false;
+    this->atqLearningInProgress = false;
+    this->atqLearningComplete = false;
+    this->atqLearningStartMs = 0;
 }
 
 DRV8462::~DRV8462()
@@ -13,23 +17,39 @@ DRV8462::~DRV8462()
 
 void DRV8462::setupAutoTorque()
 {
-    // Configure auto-torque current window around the existing 10% torque setup.
-    // These values can be tuned later per motor/load profile.
-    constexpr uint8_t atq_trq_min = 26; // ~10%
-    constexpr uint8_t atq_trq_max = 52; // ~20%
+    if (!ATQ_ENABLE)
+    {
+        return;
+    }
 
-    this->spiWriteRegister(SPI_ATQ_CTRL11, atq_trq_min);
-    this->spiWriteRegister(SPI_ATQ_CTRL12, atq_trq_max);
+    this->spiWriteRegister(SPI_ATQ_CTRL11, ATQ_TRQ_MIN_CURRENT);
+    this->spiWriteRegister(SPI_ATQ_CTRL12, ATQ_TRQ_MAX_CURRENT);
 
-    if (this->spiReadRegister(SPI_ATQ_CTRL11) != atq_trq_min)
+    if (this->spiReadRegister(SPI_ATQ_CTRL11) != ATQ_TRQ_MIN_CURRENT)
     {
         Serial.println("Failed to set ATQ_TRQ_MIN in ATQ_CTRL11");
         this->faultDetected();
     }
 
-    if (this->spiReadRegister(SPI_ATQ_CTRL12) != atq_trq_max)
+    if (this->spiReadRegister(SPI_ATQ_CTRL12) != ATQ_TRQ_MAX_CURRENT)
     {
         Serial.println("Failed to set ATQ_TRQ_MAX in ATQ_CTRL12");
+        this->faultDetected();
+    }
+
+    uint16_t atq_ctrl4 = this->spiReadRegister(SPI_ATQ_CTRL4);
+    atq_ctrl4 = (atq_ctrl4 & ATQ_LRN_CONST2_MSB_MASK) |
+                (((ATQ_LRN_MIN_CURRENT_CODE & 0x1F) << 3) & ATQ_LRN_MIN_CURRENT_MASK);
+    this->spiWriteRegister(SPI_ATQ_CTRL4, atq_ctrl4);
+
+    uint16_t atq_ctrl15 = (((ATQ_ERROR_TRUNCATE_CODE & 0x0F) << 4) & ATQ_ERROR_TRUNCATE_MASK) |
+                          (((ATQ_LRN_STEP_CODE & 0x03) << 2) & ATQ_LRN_STEP_FIELD_MASK) |
+                          ((ATQ_LRN_CYCLE_SELECT_CODE & 0x03) & ATQ_LRN_CYCLE_FIELD_MASK);
+    this->spiWriteRegister(SPI_ATQ_CTRL15, atq_ctrl15);
+
+    if (this->spiReadRegister(SPI_ATQ_CTRL15) != atq_ctrl15)
+    {
+        Serial.println("Failed to set ATQ learning parameters in ATQ_CTRL15");
         this->faultDetected();
     }
 
@@ -43,6 +63,72 @@ void DRV8462::setupAutoTorque()
         Serial.println("Failed to enable auto torque (ATQ_EN)");
         this->faultDetected();
     }
+
+#if ATQ_RUN_LEARNING_ON_STARTUP
+    this->atqLearningPending = true;
+    this->atqLearningInProgress = false;
+    this->atqLearningComplete = false;
+    Serial.println("ATQ learning armed: will start on first motor motion");
+#endif
+}
+
+void DRV8462::serviceAutoTorqueLearning(bool motorIsStepping)
+{
+#if ATQ_RUN_LEARNING_ON_STARTUP
+    if (!ATQ_ENABLE || this->atqLearningComplete)
+    {
+        return;
+    }
+
+    if (this->atqLearningPending && motorIsStepping)
+    {
+        uint16_t atq_ctrl10 = this->spiReadRegister(SPI_ATQ_CTRL10);
+        atq_ctrl10 |= LRN_START_MASK;
+        this->spiWriteRegister(SPI_ATQ_CTRL10, atq_ctrl10);
+
+        this->atqLearningPending = false;
+        this->atqLearningInProgress = true;
+        this->atqLearningStartMs = millis();
+        Serial.println("ATQ learning started");
+    }
+
+    if (!this->atqLearningInProgress)
+    {
+        return;
+    }
+
+    uint16_t diag2 = this->spiReadRegister(SPI_DIAG2);
+    if ((diag2 & ATQ_LRN_DONE_MASK) != 0)
+    {
+        this->atqLearningInProgress = false;
+        this->atqLearningComplete = true;
+
+        uint16_t atq_ctrl2 = this->spiReadRegister(SPI_ATQ_CTRL2);
+        uint16_t atq_ctrl3 = this->spiReadRegister(SPI_ATQ_CTRL3);
+        uint16_t atq_ctrl4_learn = this->spiReadRegister(SPI_ATQ_CTRL4);
+        uint16_t atq_ctrl5 = this->spiReadRegister(SPI_ATQ_CTRL5);
+
+        uint16_t atq_lrn_const1 = ((atq_ctrl3 & 0x07) << 8) | (atq_ctrl2 & 0xFF);
+        uint16_t atq_lrn_const2 = ((atq_ctrl4_learn & ATQ_LRN_CONST2_MSB_MASK) << 8) | (atq_ctrl5 & 0xFF);
+
+        Serial.printf("ATQ learning done. CONST1=%u CONST2=%u\n", atq_lrn_const1, atq_lrn_const2);
+        Serial.printf("ATQ regs: CTRL2=0x%02X CTRL3=0x%02X CTRL4=0x%02X CTRL5=0x%02X\n",
+                      atq_ctrl2,
+                      atq_ctrl3,
+                      atq_ctrl4_learn,
+                      atq_ctrl5);
+        return;
+    }
+
+    if ((millis() - this->atqLearningStartMs) > ATQ_LRN_TIMEOUT_MS)
+    {
+        this->atqLearningInProgress = false;
+        this->atqLearningPending = true;
+        Serial.println("Auto-torque learning timeout; will retry on next motor motion");
+    }
+#else
+    (void)motorIsStepping;
+#endif
 }
 
 /**
@@ -247,6 +333,8 @@ void DRV8462::setupRMT()
  */
 void DRV8462::moveSteps(int steps, int speed_hz)
 {
+    this->serviceAutoTorqueLearning((steps != 0) && (speed_hz > 0));
+
     // check if last command is still executing, if so, stop it before sending new command
     rmt_channel_status_result_t status;
     rmt_get_channel_status(&status);

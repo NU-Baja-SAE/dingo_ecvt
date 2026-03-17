@@ -44,6 +44,19 @@
 #define HOLD_MOTOR_CURRENT 200 
 #define STEPS_PER_REVOLUTION 200 * 16 // 1.8 degree step angle = 200 steps per revolution, 16x microstepping = 3200 steps per revolution
 
+// Auto torque configuration
+#define ATQ_ENABLE 1
+#define ATQ_TRQ_MIN_CURRENT 26
+#define ATQ_TRQ_MAX_CURRENT 52
+
+// Auto torque learning routine configuration
+#define ATQ_RUN_LEARNING_ON_STARTUP 1
+#define ATQ_LRN_MIN_CURRENT_CODE (RUN_MOTOR_CURRENT / 8) // Initial learning current = code * 8
+#define ATQ_LRN_STEP_CODE 2                              // 00:128, 01:16, 10:32, 11:64
+#define ATQ_LRN_CYCLE_SELECT_CODE 3                      // 00:8, 01:16, 10:24, 11:32 half-cycles
+#define ATQ_ERROR_TRUNCATE_CODE 0                        // bits truncated from ATQ error before PD loop
+#define ATQ_LRN_TIMEOUT_MS 1500
+
 
 
 // SECTION: Controller configurations
