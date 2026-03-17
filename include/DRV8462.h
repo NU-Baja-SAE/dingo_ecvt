@@ -21,6 +21,9 @@ public:
     void moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec);
     void stop();
     uint16_t readFault();
+    uint16_t readDiag2();
+    bool isAtqLearningDone();
+    void printAtqLearnedParameters();
     void faultDetected();
 
 private:
@@ -29,6 +32,7 @@ private:
     bool atqLearningPending;
     bool atqLearningInProgress;
     bool atqLearningComplete;
+    unsigned long atqLearningMotionStartMs;
     unsigned long atqLearningStartMs;
     void setupAutoTorque();
     void serviceAutoTorqueLearning(bool motorIsStepping);

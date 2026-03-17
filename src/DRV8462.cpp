@@ -7,6 +7,7 @@ DRV8462::DRV8462()
     this->atqLearningPending = false;
     this->atqLearningInProgress = false;
     this->atqLearningComplete = false;
+    this->atqLearningMotionStartMs = 0;
     this->atqLearningStartMs = 0;
 }
 
@@ -37,15 +38,37 @@ void DRV8462::setupAutoTorque()
         this->faultDetected();
     }
 
+    uint16_t atq_ctrl15 = 0;
+
+#if ATQ_USE_LEARNED_PARAMS
+    uint16_t atq_ctrl2 = (ATQ_LEARNED_CONST1 & 0xFF);
+    uint16_t atq_ctrl3 = ((ATQ_LEARNED_CONST1 >> 8) & 0x07);
+    uint16_t atq_ctrl4 = (((ATQ_LEARNED_MIN_CURRENT_CODE & 0x1F) << 3) & ATQ_LRN_MIN_CURRENT_MASK) |
+                         ((ATQ_LEARNED_CONST2 >> 8) & ATQ_LRN_CONST2_MSB_MASK);
+    uint16_t atq_ctrl5 = (ATQ_LEARNED_CONST2 & 0xFF);
+
+    atq_ctrl15 = (((ATQ_ERROR_TRUNCATE_CODE & 0x0F) << 4) & ATQ_ERROR_TRUNCATE_MASK) |
+                 (((ATQ_LEARNED_STEP_CODE & 0x03) << 2) & ATQ_LRN_STEP_FIELD_MASK) |
+                 ((ATQ_LEARNED_CYCLE_SELECT_CODE & 0x03) & ATQ_LRN_CYCLE_FIELD_MASK);
+
+    this->spiWriteRegister(SPI_ATQ_CTRL2, atq_ctrl2);
+    this->spiWriteRegister(SPI_ATQ_CTRL3, atq_ctrl3);
+    this->spiWriteRegister(SPI_ATQ_CTRL4, atq_ctrl4);
+    this->spiWriteRegister(SPI_ATQ_CTRL5, atq_ctrl5);
+    this->spiWriteRegister(SPI_ATQ_CTRL15, atq_ctrl15);
+
+    Serial.printf("ATQ learned params loaded. CONST1=%u CONST2=%u\n", ATQ_LEARNED_CONST1, ATQ_LEARNED_CONST2);
+#else
     uint16_t atq_ctrl4 = this->spiReadRegister(SPI_ATQ_CTRL4);
     atq_ctrl4 = (atq_ctrl4 & ATQ_LRN_CONST2_MSB_MASK) |
                 (((ATQ_LRN_MIN_CURRENT_CODE & 0x1F) << 3) & ATQ_LRN_MIN_CURRENT_MASK);
     this->spiWriteRegister(SPI_ATQ_CTRL4, atq_ctrl4);
 
-    uint16_t atq_ctrl15 = (((ATQ_ERROR_TRUNCATE_CODE & 0x0F) << 4) & ATQ_ERROR_TRUNCATE_MASK) |
-                          (((ATQ_LRN_STEP_CODE & 0x03) << 2) & ATQ_LRN_STEP_FIELD_MASK) |
-                          ((ATQ_LRN_CYCLE_SELECT_CODE & 0x03) & ATQ_LRN_CYCLE_FIELD_MASK);
+    atq_ctrl15 = (((ATQ_ERROR_TRUNCATE_CODE & 0x0F) << 4) & ATQ_ERROR_TRUNCATE_MASK) |
+                 (((ATQ_LRN_STEP_CODE & 0x03) << 2) & ATQ_LRN_STEP_FIELD_MASK) |
+                 ((ATQ_LRN_CYCLE_SELECT_CODE & 0x03) & ATQ_LRN_CYCLE_FIELD_MASK);
     this->spiWriteRegister(SPI_ATQ_CTRL15, atq_ctrl15);
+#endif
 
     if (this->spiReadRegister(SPI_ATQ_CTRL15) != atq_ctrl15)
     {
@@ -68,7 +91,10 @@ void DRV8462::setupAutoTorque()
     this->atqLearningPending = true;
     this->atqLearningInProgress = false;
     this->atqLearningComplete = false;
+    this->atqLearningMotionStartMs = 0;
     Serial.println("ATQ learning armed: will start on first motor motion");
+#elif ATQ_USE_LEARNED_PARAMS
+    Serial.println("ATQ using saved learned parameters (learning routine disabled)");
 #endif
 }
 
@@ -82,14 +108,38 @@ void DRV8462::serviceAutoTorqueLearning(bool motorIsStepping)
 
     if (this->atqLearningPending && motorIsStepping)
     {
+        if (this->atqLearningMotionStartMs == 0)
+        {
+            this->atqLearningMotionStartMs = millis();
+            return;
+        }
+
+        if ((millis() - this->atqLearningMotionStartMs) < ATQ_LRN_MOTION_SETTLE_MS)
+        {
+            return;
+        }
+
         uint16_t atq_ctrl10 = this->spiReadRegister(SPI_ATQ_CTRL10);
         atq_ctrl10 |= LRN_START_MASK;
         this->spiWriteRegister(SPI_ATQ_CTRL10, atq_ctrl10);
+
+        uint16_t atq_ctrl10_verify = this->spiReadRegister(SPI_ATQ_CTRL10);
+        if ((atq_ctrl10_verify & LRN_START_MASK) == 0)
+        {
+            Serial.println("Failed to set ATQ learning start (LRN_START)");
+            this->faultDetected();
+            this->atqLearningMotionStartMs = 0;
+            return;
+        }
 
         this->atqLearningPending = false;
         this->atqLearningInProgress = true;
         this->atqLearningStartMs = millis();
         Serial.println("ATQ learning started");
+    }
+    else if (this->atqLearningPending && !motorIsStepping)
+    {
+        this->atqLearningMotionStartMs = 0;
     }
 
     if (!this->atqLearningInProgress)
@@ -98,7 +148,8 @@ void DRV8462::serviceAutoTorqueLearning(bool motorIsStepping)
     }
 
     uint16_t diag2 = this->spiReadRegister(SPI_DIAG2);
-    if ((diag2 & ATQ_LRN_DONE_MASK) != 0)
+    uint16_t atq_ctrl10 = this->spiReadRegister(SPI_ATQ_CTRL10);
+    if (((diag2 & ATQ_LRN_DONE_MASK) != 0) && ((atq_ctrl10 & LRN_START_MASK) == 0))
     {
         this->atqLearningInProgress = false;
         this->atqLearningComplete = true;
@@ -122,8 +173,15 @@ void DRV8462::serviceAutoTorqueLearning(bool motorIsStepping)
 
     if ((millis() - this->atqLearningStartMs) > ATQ_LRN_TIMEOUT_MS)
     {
+        if ((atq_ctrl10 & LRN_START_MASK) != 0)
+        {
+            atq_ctrl10 &= ~LRN_START_MASK;
+            this->spiWriteRegister(SPI_ATQ_CTRL10, atq_ctrl10);
+        }
+
         this->atqLearningInProgress = false;
         this->atqLearningPending = true;
+        this->atqLearningMotionStartMs = 0;
         Serial.println("Auto-torque learning timeout; will retry on next motor motion");
     }
 #else
@@ -239,7 +297,7 @@ void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
     }
 
     // check fault bits of MSB
-    if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK || dataMSB & OT_MASK)
+    if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK)
     {
         this->faultDetected();
     }
@@ -274,7 +332,7 @@ uint16_t DRV8462::spiReadRegister(uint8_t address)
         this->faultDetected();
     }
     // check fault bits of MSB
-    if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK || dataMSB & OT_MASK)
+    if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK)
     {
         this->faultDetected();
     }
@@ -306,6 +364,46 @@ void DRV8462::stop()
 uint16_t DRV8462::readFault()
 {
     return this->spiReadRegister(SPI_FAULT);
+}
+
+uint16_t DRV8462::readDiag2()
+{
+    return this->spiReadRegister(SPI_DIAG2);
+}
+
+bool DRV8462::isAtqLearningDone()
+{
+    return (this->readDiag2() & ATQ_LRN_DONE_MASK) != 0;
+}
+
+void DRV8462::printAtqLearnedParameters()
+{
+    uint16_t atq_ctrl2 = this->spiReadRegister(SPI_ATQ_CTRL2);
+    uint16_t atq_ctrl3 = this->spiReadRegister(SPI_ATQ_CTRL3);
+    uint16_t atq_ctrl4 = this->spiReadRegister(SPI_ATQ_CTRL4);
+    uint16_t atq_ctrl5 = this->spiReadRegister(SPI_ATQ_CTRL5);
+    uint16_t atq_ctrl15 = this->spiReadRegister(SPI_ATQ_CTRL15);
+
+    uint16_t atq_lrn_const1 = ((atq_ctrl3 & 0x07) << 8) | (atq_ctrl2 & 0xFF);
+    uint16_t atq_lrn_const2 = ((atq_ctrl4 & ATQ_LRN_CONST2_MSB_MASK) << 8) | (atq_ctrl5 & 0xFF);
+
+    uint16_t atq_lrn_min_current = (atq_ctrl4 & ATQ_LRN_MIN_CURRENT_MASK) >> 3;
+    uint16_t atq_lrn_step = (atq_ctrl15 & ATQ_LRN_STEP_FIELD_MASK) >> 2;
+    uint16_t atq_lrn_cycle_select = (atq_ctrl15 & ATQ_LRN_CYCLE_FIELD_MASK);
+
+    Serial.println("=== ATQ LEARNED PARAMETERS ===");
+    Serial.printf("ATQ_LRN_CONST1=%u\n", atq_lrn_const1);
+    Serial.printf("ATQ_LRN_CONST2=%u\n", atq_lrn_const2);
+    Serial.printf("ATQ_LRN_MIN_CURRENT(code)=%u\n", atq_lrn_min_current);
+    Serial.printf("ATQ_LRN_STEP(code)=%u\n", atq_lrn_step);
+    Serial.printf("ATQ_LRN_CYCLE_SELECT(code)=%u\n", atq_lrn_cycle_select);
+    Serial.printf("ATQ_CTRL2=0x%02X ATQ_CTRL3=0x%02X ATQ_CTRL4=0x%02X ATQ_CTRL5=0x%02X ATQ_CTRL15=0x%02X\n",
+                  atq_ctrl2,
+                  atq_ctrl3,
+                  atq_ctrl4,
+                  atq_ctrl5,
+                  atq_ctrl15);
+    Serial.println("==============================");
 }
 
 void DRV8462::setupRMT()
