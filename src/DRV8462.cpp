@@ -81,8 +81,8 @@ void DRV8462::begin()
     ctrl9 |= OLD_MASK; // set OLD bit
     this->spiWriteRegister(SPI_CTRL9, ctrl9);
 
-    // write to CTRL10 to set idle current to 10% (0.1 * 255 = 25.5 ~ 26)
-    this->spiWriteRegister(SPI_CTRL10, HOLD_MOTOR_CURRENT); // set idle current to 10%
+    // write to CTRL10 to set idle current 
+    this->spiWriteRegister(SPI_CTRL10, HOLD_MOTOR_CURRENT); 
     // read CTRL10 to make sure idle current setting is correct
     uint16_t ctrl10Reg = this->spiReadRegister(SPI_CTRL10);
     if (ctrl10Reg != HOLD_MOTOR_CURRENT)
@@ -91,7 +91,7 @@ void DRV8462::begin()
         this->faultDetected();
     }
 
-    // write to CTRL11 to set current to 50% 
+    // write to CTRL11 to set current limit
     this->spiWriteRegister(SPI_CTRL11, RUN_MOTOR_CURRENT); 
     // read CTRL11 to make sure torque setting is correct
     uint16_t ctrl11Reg = this->spiReadRegister(SPI_CTRL11);
