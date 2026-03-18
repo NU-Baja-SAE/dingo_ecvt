@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "controller.h"
+#include "config.h"
 
 Controller controller;
 

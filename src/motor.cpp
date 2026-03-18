@@ -136,3 +136,10 @@ uint16_t Motor::getFault()
 {
     return this->driver.readFault();
 }
+
+void Motor::setHome(int homePosition) {
+    this->currentPosition = homePosition;
+    this->setpointPosition = homePosition;
+    this->currentVelocity = 0.0f;
+    this->stepAccumulator = 0.0f;
+}

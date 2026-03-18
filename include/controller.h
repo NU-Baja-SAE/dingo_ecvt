@@ -28,7 +28,8 @@ enum ControlMode {
     POWER,
     MANUAL,
     BRAKE,
-    DEBUG
+    DEBUG,
+    HOMING
 };
 
 
@@ -47,13 +48,15 @@ class Controller {
         float powerGearRatio(float engineRPM, float secondaryRPM);
         int gearRatioToSetpoint(float gearRatio);
         int rpmToSetpoint(float engineRPM);
+        int homingRoutine();
         float last_Error;
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
         BajaCan can;
-        ControlMode controlMode = POWER; 
-        PID gearRatioPID = PID(20.0, 0.0, 0.0); 
+        ControlMode controlMode = HOMING; 
+        PID gearRatioPID = PID(20.0, 0.0, 0.0);
+
 };
 
 

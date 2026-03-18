@@ -13,6 +13,7 @@ class Motor {
         void setSetpoint(int position);
         std::string log();
         uint16_t getFault();
+        void setHome(int homePosition);
         
     private:
         void startTimer();
