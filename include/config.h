@@ -98,6 +98,7 @@
 
 #define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage
 #define LOW_MAX_SETPOINT 5000 // tune this, point sheave is fully engaged at low gear
+#define LIMIT_SWITCH_HOME_OFFSET -2000
 
 #define clamp(x, min, max) (x < min ? min : x > max ? max : x)
 #define lerp(a, b, k) (a + (b - a) * k)

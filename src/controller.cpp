@@ -68,7 +68,7 @@ void Controller::timerCallback()
 
         if (limitSwitchState)
         {
-            this->motor.setHome(-2000);
+            this->motor.setHome(LIMIT_SWITCH_HOME_OFFSET);
             motorSetpoint = 0; 
         }
         break;
@@ -141,8 +141,7 @@ int Controller::homingRoutine()
     static bool firstLimitSwitchTriggered = false;
     static unsigned long limitSwitchTriggerTime = 0;
 
-    // check limit switch state, active high
-    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW; // limit switch is triggered when the pin reads LOW due to pull-down configuration (normally closed switch to power)
+    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW;
 
     if (!firstLimitSwitchTriggered)
     {
@@ -158,18 +157,17 @@ int Controller::homingRoutine()
         }
     }
     else if (firstLimitSwitchTriggered && (millis() - limitSwitchTriggerTime < 500))
-    {                                           // move outwards for 2 seconds after first trigger to ensure we are fully out of the limit switch, then move inwards a little bit
+    {// move outwards first trigger to ensure we are fully out of the limit switch, then move inwards a little bit
         return this->motor.getPosition() + 200; // move inwards a little bit
     }
     else if (firstLimitSwitchTriggered)
     { // after moving inwards, move outwards slowly until limit switch is triggered again
         if (limitSwitchState)
-        { // if limit switch is triggered again, we are at the home position
-            // set current position as idle sheave position (0)
-            this->motor.setHome(-2000);
+        { 
             // reset static variables for next homing routine
             firstLimitSwitchTriggered = false;
             limitSwitchTriggerTime = 0;
+            this->motor.setHome(LIMIT_SWITCH_HOME_OFFSET);
             this->controlMode = POWER;              // switch to normal control mode after homing
             return this->motor.getPosition() + 800; // move outwards a little bit to ensure we are not triggering the switch anymore
         }
