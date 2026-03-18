@@ -6,8 +6,8 @@
 #include "CanDatabase.h"
 
 Controller::Controller() : motor(),
-                           enginePulseCounter(PRIMARY_HALL_PIN, PRIMARY_COUNTER_ID, PRIMARY_MAGNET_COUNT), 
-                           secondaryPulseCounter(SECONDARY_HALL_PIN, SECONDARY_COUNTER_ID, SECONDARY_MAGNET_COUNT), 
+                           enginePulseCounter(PRIMARY_HALL_PIN, PRIMARY_COUNTER_ID, PRIMARY_MAGNET_COUNT),
+                           secondaryPulseCounter(SECONDARY_HALL_PIN, SECONDARY_COUNTER_ID, SECONDARY_MAGNET_COUNT),
                            can(CAN_TX_PIN, CAN_RX_PIN)
 {
 }
@@ -20,16 +20,16 @@ void Controller::init()
 {
     this->last_Error = 0.0f;
     controller_timer = xTimerCreate("controller_timer",
-                                                  pdMS_TO_TICKS(CONTROLLER_TIMER_RATE),
-                                                  pdTRUE,
-                                                  (void *)this, // Pass the Controller instance as timer ID
-                                                  [](TimerHandle_t xTimer)
-                                                  {
-                                                      // Timer callback function lambda
-                                                      // retrieve the Controller instance from the timer ID and call the timerCallback method
-                                                      Controller *controller = static_cast<Controller *>(pvTimerGetTimerID(xTimer));
-                                                      controller->timerCallback();
-                                                  });
+                                    pdMS_TO_TICKS(CONTROLLER_TIMER_RATE),
+                                    pdTRUE,
+                                    (void *)this, // Pass the Controller instance as timer ID
+                                    [](TimerHandle_t xTimer)
+                                    {
+                                        // Timer callback function lambda
+                                        // retrieve the Controller instance from the timer ID and call the timerCallback method
+                                        Controller *controller = static_cast<Controller *>(pvTimerGetTimerID(xTimer));
+                                        controller->timerCallback();
+                                    });
 
     if (!controller_timer)
     {
@@ -41,9 +41,11 @@ void Controller::init()
         Serial.printf("ERROR: Controller timer could not be started\n");
     }
 
-    motor.init(); // Start the motor timer as well
+    pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN);
+
+    motor.init();   // Start the motor timer as well
     motor.enable(); // Enable the motor driver
-    can.begin();        // Start the CAN bus
+    can.begin();    // Start the CAN bus
 }
 
 /**
@@ -54,20 +56,30 @@ void Controller::timerCallback()
 {
     // Determine motor setpoint based on mode
     int32_t motorSetpoint = 0;
-    
+
     float engineRPM = enginePulseCounter.getRPM();
-    
+    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW;
+
     switch (this->controlMode)
     {
-        case POWER:
+    case POWER:
         /* code */
-            motorSetpoint = this->rpmToSetpoint(engineRPM);
-        break;
-        case DEBUG:
+        motorSetpoint = this->rpmToSetpoint(engineRPM);
 
-            motorSetpoint = constrain(map(millis(), 0, 1000, 0, STEPS_PER_REVOLUTION), 0, STEPS_PER_REVOLUTION );
+        if (limitSwitchState)
+        {
+            this->motor.setHome(-2000);
+            motorSetpoint = 0; 
+        }
         break;
-    
+    case HOMING:
+        motorSetpoint = this->homingRoutine();
+        break;
+    case DEBUG:
+
+        motorSetpoint = constrain(map(millis(), 0, 1000, 0, STEPS_PER_REVOLUTION), 0, STEPS_PER_REVOLUTION);
+        break;
+
     default:
         break;
     }
@@ -77,17 +89,17 @@ void Controller::timerCallback()
 
     // check for motor faults
     uint16_t fault = motor.getFault();
-    if (fault != 0) {
+    if (fault != 0)
+    {
         Serial.printf("Motor fault detected! Fault code: 0x%X\n", fault);
     }
-    
+
     // send engine RPM and secondary RPM over CAN bus for telemetry
-    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM); 
+    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM);
     can.writeMessage(engineRpmMsg, 0);
 
     CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
     can.writeMessage(motorSetpointMsg, 0);
-
 }
 
 int Controller::rpmToSetpoint(float rpm)
@@ -96,7 +108,6 @@ int Controller::rpmToSetpoint(float rpm)
     if (rpm < ENGINE_ENGAGE_RPM) // if the rpm is less than the idle rpm
     {
         return MIN_MOTOR_SETPOINT;
-
     }
     // else if (rpm > MAX_RPM) // if the rpm is greater than the max rpm
     // {
@@ -121,4 +132,52 @@ int Controller::rpmToSetpoint(float rpm)
 
         return clamp(this->motor.getPosition() + d_setpoint, low_setpoint, MAX_MOTOR_SETPOINT);
     }
+}
+
+// implement a 3 step homing routine where the motor first moves outwards until the limit switch is triggered, then moves inwards a little bit, then moves outwards again slowly until the limit switch is triggered again, and then sets the current position as the idle sheave position (0)
+int Controller::homingRoutine()
+{
+
+    static bool firstLimitSwitchTriggered = false;
+    static unsigned long limitSwitchTriggerTime = 0;
+
+    // check limit switch state, active high
+    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW; // limit switch is triggered when the pin reads LOW due to pull-down configuration (normally closed switch to power)
+
+    if (!firstLimitSwitchTriggered)
+    {
+        if (limitSwitchState)
+        { // if the limit switch is already triggered, we are at the outer limit, so move inwards
+            firstLimitSwitchTriggered = true;
+            limitSwitchTriggerTime = millis();
+            return this->motor.getPosition();
+        }
+        else
+        { // if the limit switch is not triggered, move outwards until it is triggered
+            return this->motor.getPosition() - 200;
+        }
+    }
+    else if (firstLimitSwitchTriggered && (millis() - limitSwitchTriggerTime < 500))
+    {                                           // move outwards for 2 seconds after first trigger to ensure we are fully out of the limit switch, then move inwards a little bit
+        return this->motor.getPosition() + 200; // move inwards a little bit
+    }
+    else if (firstLimitSwitchTriggered)
+    { // after moving inwards, move outwards slowly until limit switch is triggered again
+        if (limitSwitchState)
+        { // if limit switch is triggered again, we are at the home position
+            // set current position as idle sheave position (0)
+            this->motor.setHome(-2000);
+            // reset static variables for next homing routine
+            firstLimitSwitchTriggered = false;
+            limitSwitchTriggerTime = 0;
+            this->controlMode = POWER;              // switch to normal control mode after homing
+            return this->motor.getPosition() + 800; // move outwards a little bit to ensure we are not triggering the switch anymore
+        }
+        else
+        {                                          // if limit switch is not triggered, keep moving outwards slowly
+            return this->motor.getPosition() - 50; // move outwards slowly
+        }
+    }
+
+    return this->motor.getPosition(); // default return current position
 }

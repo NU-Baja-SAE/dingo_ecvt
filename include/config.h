@@ -18,6 +18,9 @@
 #define SECONDARY_COUNTER_ID PCNT_UNIT_3
 #define SECONDARY_MAGNET_COUNT 6
 
+// SECTION: Misc Pin configurations
+#define LIMIT_SWITCH_PIN GPIO_NUM_39
+
 
 // SECTION: Timer configurations
 
@@ -25,7 +28,6 @@
 #define MOTOR_TIMER_RATE 10       // Motor timer rate in milliseconds
 
 // SECTION: Motor configurations
-
 
 // SPI Pin Definitions
 #define SPI_SDI_PIN         21    // GPIO21: SPI Slave Data In
