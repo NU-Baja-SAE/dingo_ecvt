@@ -41,8 +41,6 @@ void Controller::init()
         Serial.printf("ERROR: Controller timer could not be started\n");
     }
 
-    pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN);
-
     motor.init();   // Start the motor timer as well
     motor.enable(); // Enable the motor driver
     can.begin();    // Start the CAN bus
@@ -58,22 +56,13 @@ void Controller::timerCallback()
     int32_t motorSetpoint = 0;
 
     float engineRPM = enginePulseCounter.getRPM();
-    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW;
+    this->readLinPot();
 
     switch (this->controlMode)
     {
     case POWER:
         /* code */
         motorSetpoint = this->rpmToSetpoint(engineRPM);
-
-        if (limitSwitchState)
-        {
-            this->motor.setHome(LIMIT_SWITCH_HOME_OFFSET);
-            motorSetpoint = 0; 
-        }
-        break;
-    case HOMING:
-        motorSetpoint = this->homingRoutine();
         break;
     case DEBUG:
 
@@ -85,6 +74,8 @@ void Controller::timerCallback()
     }
 
     // set motor setpoint
+
+    motor.setPosition(this->lin_pot_pos); // for testing, set motor position to lin pot position
     motor.setSetpoint(motorSetpoint);
 
     // check for motor faults
@@ -96,10 +87,22 @@ void Controller::timerCallback()
 
     // send engine RPM and secondary RPM over CAN bus for telemetry
     CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM);
-    can.writeMessage(engineRpmMsg, 0);
-
+    esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
+    if (ret != ESP_OK)
+    {
+        Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
+    }
     CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
-    can.writeMessage(motorSetpointMsg, 0);
+    ret = can.writeMessage(motorSetpointMsg, 0);
+    if (ret != ESP_OK)
+    {
+        Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
+    }
+
+    twai_status_info_t status;
+    if (twai_get_status_info(&status) == ESP_OK) {
+        Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
+    }
 }
 
 int Controller::rpmToSetpoint(float rpm)
@@ -134,48 +137,11 @@ int Controller::rpmToSetpoint(float rpm)
     }
 }
 
-// implement a 3 step homing routine where the motor first moves outwards until the limit switch is triggered, then moves inwards a little bit, then moves outwards again slowly until the limit switch is triggered again, and then sets the current position as the idle sheave position (0)
-int Controller::homingRoutine()
+// reads lin pot and converts the voltage to a position in steps
+void Controller::readLinPot()
 {
-
-    static bool firstLimitSwitchTriggered = false;
-    static unsigned long limitSwitchTriggerTime = 0;
-
-    bool limitSwitchState = digitalRead(LIMIT_SWITCH_PIN) == LOW;
-
-    if (!firstLimitSwitchTriggered)
-    {
-        if (limitSwitchState)
-        { // if the limit switch is already triggered, we are at the outer limit, so move inwards
-            firstLimitSwitchTriggered = true;
-            limitSwitchTriggerTime = millis();
-            return this->motor.getPosition();
-        }
-        else
-        { // if the limit switch is not triggered, move outwards until it is triggered
-            return this->motor.getPosition() - 200;
-        }
-    }
-    else if (firstLimitSwitchTriggered && (millis() - limitSwitchTriggerTime < 500))
-    {// move outwards first trigger to ensure we are fully out of the limit switch, then move inwards a little bit
-        return this->motor.getPosition() + 200; // move inwards a little bit
-    }
-    else if (firstLimitSwitchTriggered)
-    { // after moving inwards, move outwards slowly until limit switch is triggered again
-        if (limitSwitchState)
-        { 
-            // reset static variables for next homing routine
-            firstLimitSwitchTriggered = false;
-            limitSwitchTriggerTime = 0;
-            this->motor.setHome(LIMIT_SWITCH_HOME_OFFSET);
-            this->controlMode = POWER;              // switch to normal control mode after homing
-            return this->motor.getPosition() + 800; // move outwards a little bit to ensure we are not triggering the switch anymore
-        }
-        else
-        {                                          // if limit switch is not triggered, keep moving outwards slowly
-            return this->motor.getPosition() - 50; // move outwards slowly
-        }
-    }
-
-    return this->motor.getPosition(); // default return current position
+    // read linear potentiometer value and convert to position in steps
+    int linPotValue = analogRead(LIN_POT_PIN);
+    int new_lin_pot_pos = map(linPotValue, HOME_VOLTAGE, MAX_VOLTAGE, LIMIT_SWITCH_HOME_OFFSET, MAX_MOTOR_SETPOINT);
+    this->lin_pot_pos = linPotFilter.filter(new_lin_pot_pos);
 }

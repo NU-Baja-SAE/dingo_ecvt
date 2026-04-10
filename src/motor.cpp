@@ -55,6 +55,11 @@ int Motor::getPosition()
     return this->currentPosition;
 }
 
+void Motor::setPosition(int position)
+{
+    this->currentPosition = position;
+}
+
 void Motor::enable()
 {
     this->driver.enable();

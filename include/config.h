@@ -19,7 +19,10 @@
 #define SECONDARY_MAGNET_COUNT 6
 
 // SECTION: Misc Pin configurations
-#define LIMIT_SWITCH_PIN GPIO_NUM_39
+#define LIN_POT_PIN GPIO_NUM_39
+#define HOME_VOLTAGE 2270
+#define MAX_VOLTAGE 4000
+
 
 
 // SECTION: Timer configurations
@@ -93,7 +96,7 @@
 #define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
 
 #define MIN_MOTOR_SETPOINT 0
-#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 9 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
+#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 11 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
 
 
 #define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage

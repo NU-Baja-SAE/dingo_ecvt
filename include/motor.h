@@ -10,6 +10,7 @@ class Motor {
         void enable();
         void disable();
         int getPosition();
+        void setPosition(int position);
         void setSetpoint(int position);
         std::string log();
         uint16_t getFault();
@@ -23,6 +24,8 @@ class Motor {
         int currentPosition; // in units of steps
         float currentVelocity; // in units of steps/s
         float stepAccumulator; // accumulates fractional steps for sub-step precision
+        // static const int maxAcceleration = 5000; // max acceleration in steps/s^2
+        // static const int maxVelocity = 1000; // max velocity in steps/s
         static const int maxAcceleration = 80000; // max acceleration in steps/s^2
         static const int maxVelocity = 15000; // max velocity in steps/s
         int setpointPosition; // in units of steps
