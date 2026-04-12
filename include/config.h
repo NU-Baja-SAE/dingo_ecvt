@@ -18,11 +18,16 @@
 #define SECONDARY_COUNTER_ID PCNT_UNIT_3
 #define SECONDARY_MAGNET_COUNT 6
 
+// SECTION: Encoder configurations
+
+#define ENCODER_A_PIN GPIO_NUM_34
+#define ENCODER_B_PIN GPIO_NUM_35
+#define ENCODER_COUNTER_ID PCNT_UNIT_2
+
 // SECTION: Misc Pin configurations
 #define LIN_POT_PIN GPIO_NUM_39
 #define HOME_VOLTAGE 2270
 #define MAX_VOLTAGE 4000
-
 
 
 // SECTION: Timer configurations
@@ -110,3 +115,15 @@
 #define RPM_Kp 3.0
 #define RPM_Kd 0
 
+
+
+// rate limited debug printf
+#define DEBUG_RATE_LIMIT_MS 100
+#define debugPrintf(...) do { \
+    static uint32_t lastPrintTime = 0; \
+    uint32_t currentTime = millis(); \
+    if (currentTime - lastPrintTime >= DEBUG_RATE_LIMIT_MS) { \
+        Serial.printf(__VA_ARGS__); \
+        lastPrintTime = currentTime; \
+    } \
+} while(0)

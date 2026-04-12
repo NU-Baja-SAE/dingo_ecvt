@@ -75,7 +75,6 @@ void Controller::timerCallback()
 
     // set motor setpoint
 
-    motor.setPosition(this->lin_pot_pos); // for testing, set motor position to lin pot position
     motor.setSetpoint(motorSetpoint);
 
     // check for motor faults
@@ -86,23 +85,23 @@ void Controller::timerCallback()
     }
 
     // send engine RPM and secondary RPM over CAN bus for telemetry
-    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM);
-    esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
-    if (ret != ESP_OK)
-    {
-        Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
-    }
-    CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
-    ret = can.writeMessage(motorSetpointMsg, 0);
-    if (ret != ESP_OK)
-    {
-        Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
-    }
+    // CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM);
+    // esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
+    // if (ret != ESP_OK)
+    // {
+    //     Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
+    // }
+    // CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
+    // ret = can.writeMessage(motorSetpointMsg, 0);
+    // if (ret != ESP_OK)
+    // {
+    //     Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
+    // }
 
-    twai_status_info_t status;
-    if (twai_get_status_info(&status) == ESP_OK) {
-        Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
-    }
+    // twai_status_info_t status;
+    // if (twai_get_status_info(&status) == ESP_OK) {
+    //     Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
+    // }
 }
 
 int Controller::rpmToSetpoint(float rpm)

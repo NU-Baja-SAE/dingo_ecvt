@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "DRV8462.h"
+#include "encoder.h"
 #include <string>
 
 
@@ -19,6 +20,7 @@ class Motor {
     private:
         void startTimer();
         DRV8462 driver;
+        Encoder encoder;
         void timerCallback();
 
         int currentPosition; // in units of steps
