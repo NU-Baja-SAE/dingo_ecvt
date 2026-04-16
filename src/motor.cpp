@@ -155,4 +155,5 @@ void Motor::setHome(int homePosition) {
     this->setpointPosition = homePosition;
     this->currentVelocity = 0.0f;
     this->stepAccumulator = 0.0f;
+    this->encoder.setCount(homePosition);
 }
