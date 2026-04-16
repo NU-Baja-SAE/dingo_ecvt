@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-Motor::Motor() : currentPosition(0), setpointPosition(0), currentVelocity(0.0f), stepAccumulator(0.0f), driver() {}
+Motor::Motor() : currentPosition(0), setpointPosition(0), currentVelocity(0.0f), stepAccumulator(0.0f), driver(), encoder(ENCODER_A_PIN, ENCODER_B_PIN, ENCODER_COUNTER_ID) {}
 
 void Motor::init()
 {
@@ -55,6 +55,12 @@ int Motor::getPosition()
     return this->currentPosition;
 }
 
+void Motor::setPosition(int position)
+{
+    this->currentPosition = position;
+    this->encoder.setCount(position);
+}
+
 void Motor::enable()
 {
     this->driver.enable();
@@ -73,9 +79,15 @@ void Motor::timerCallback()
 {
     float timeStep = (float)MOTOR_TIMER_RATE / 1000.0f - 0.00005; // time step in seconds, subract 50us to ensure steps finish before next timer callback
     
+    // update current position from encoder
+    this->currentPosition = this->encoder.getSteps();
+
+
     // calculate the ideal steps and speed
     int stepsToMove = this->setpointPosition - this->currentPosition;
     int speed_hz = stepsToMove / timeStep; // speed proportional to the number of steps, with a maximum of maxVelocity
+
+    
 
     // limit acceleration
     float acceleration = (speed_hz - this->currentVelocity) / timeStep;
@@ -100,7 +112,8 @@ void Motor::timerCallback()
 
     // set steps to move based on the limited speed
     if (abs(stepsToMove) > abs(speed_hz * timeStep))
-        stepsToMove = speed_hz * timeStep;
+        if ((int)(speed_hz * timeStep) != 0)
+            stepsToMove = speed_hz * timeStep;
 
     // implement deceleration by checking if our future position and velocity would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we stop at the setpoint
     float distanceToSetpoint = this->setpointPosition - this->currentPosition;
@@ -116,10 +129,10 @@ void Motor::timerCallback()
     {        stepsToMove = distanceToSetpoint;
     }
 
-
+    debugPrintf(">stepsToMove:%d\n", stepsToMove);
     this->driver.moveSteps(stepsToMove, abs(speed_hz));
     // For simplicity, we will assume that the motor moves the commanded steps instantly. In reality, you would want to track the actual position using encoder feedback and update currentPosition accordingly.
-    this->currentPosition += stepsToMove;
+    // this->currentPosition += stepsToMove;
     this->currentVelocity = speed_hz;
 
 }

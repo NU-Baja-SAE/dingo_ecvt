@@ -438,7 +438,7 @@ void DRV8462::moveSteps(int steps, int speed_hz)
     rmt_get_channel_status(&status);
     if (status.status[RMT_CHANNEL] == RMT_CHANNEL_BUSY)
     {
-        Serial.println("Previous command still executing, stopping it before sending new command.");
+        // Serial.println("Previous command still executing, stopping it before sending new command.");
         rmt_tx_stop(RMT_CHANNEL);
     }
 

@@ -2,6 +2,7 @@
 #include "pulse_counter.h"
 #include "BajaCan.h"
 #include <string>
+#include "filter.h"
 
 
 class PID {
@@ -40,7 +41,7 @@ class Controller {
         TimerHandle_t controller_timer; // Made public for health checks in main.cpp
         std::string log() {
             return motor.log() + "\n>Engine_RPM:" + std::to_string(enginePulseCounter.getFilteredRPM()) + 
-                   "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM());
+                   "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM()) + "\n>lin_pot:" + std::to_string(this->lin_pot_pos);
         }
 
     private:
@@ -48,13 +49,15 @@ class Controller {
         float powerGearRatio(float engineRPM, float secondaryRPM);
         int gearRatioToSetpoint(float gearRatio);
         int rpmToSetpoint(float engineRPM);
-        int homingRoutine();
+        void readLinPot();
         float last_Error;
+        int lin_pot_pos;
+        LowPassFilter linPotFilter = LowPassFilter(0.4);
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
         BajaCan can;
-        ControlMode controlMode = HOMING; 
+        ControlMode controlMode = POWER; 
         PID gearRatioPID = PID(20.0, 0.0, 0.0);
 
 };
