@@ -44,6 +44,14 @@ void Controller::init()
     motor.init();   // Start the motor timer as well
     motor.enable(); // Enable the motor driver
     can.begin();    // Start the CAN bus
+
+    // read lineer potentiometer to set initial position
+    for (int i = 0; i < 5; i++) // read a few times to let the low-pass filter stabilize
+    {
+        this->readLinPot();
+        delay(1);
+    }
+    this->motor.setPosition(this->lin_pot_pos);
 }
 
 /**
