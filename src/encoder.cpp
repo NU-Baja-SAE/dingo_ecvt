@@ -47,7 +47,7 @@ int Encoder::getCount()
 {
     int16_t count;
     pcnt_get_counter_value(counterId, &count);
-    return count;
+    return count + this->offset;
 }
 
 #define COUNT_PER_REV 4096
@@ -61,4 +61,11 @@ int Encoder::getSteps() {
 void Encoder::resetCount()
 {
     pcnt_counter_clear(counterId);
+    offset = 0;
+}
+
+void Encoder::setCount(int count)
+{
+    pcnt_counter_clear(counterId);
+    offset = count;
 }

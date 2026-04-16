@@ -58,6 +58,7 @@ int Motor::getPosition()
 void Motor::setPosition(int position)
 {
     this->currentPosition = position;
+    this->encoder.setCount(position);
 }
 
 void Motor::enable()

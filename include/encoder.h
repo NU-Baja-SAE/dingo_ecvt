@@ -8,7 +8,9 @@ public:
     int getCount();
     int getSteps();
     void resetCount();
+    void setCount(int count);
 private:
     pcnt_unit_t counterId;
+    int32_t offset = 0;
 
 };
