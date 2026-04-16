@@ -47,7 +47,7 @@ int Encoder::getCount()
 {
     int16_t count;
     pcnt_get_counter_value(counterId, &count);
-    return count + this->offset;
+    return count;
 }
 
 #define COUNT_PER_REV 4096
@@ -55,7 +55,9 @@ int Encoder::getCount()
 int Encoder::getSteps() {
     int16_t count;
     pcnt_get_counter_value(counterId, &count);
-    return map(count, 0, COUNT_PER_REV, 0, STEPS_PER_REVOLUTION);
+    
+    // Cast to int32_t BEFORE multiplying to prevent overflow
+    return ((int32_t)count * STEPS_PER_REVOLUTION) / COUNT_PER_REV + offset;
 }
 
 void Encoder::resetCount()

@@ -482,40 +482,26 @@ void DRV8462::moveSteps(int steps, int speed_hz)
     rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
 }
 
-/**
- * @brief Generates a trapezoidal velocity profile to move the motor a specified number of steps with a given maximum speed and acceleration. It calculates the required pulse durations for acceleration, constant speed, and deceleration phases, constructs the RMT items for the step pulses accordingly, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
- *
- * @param steps
- * @param max_speed_hz
- * @param acceleration_hz_per_sec
- */
-void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec)
-{
-    for (int i = 0; i < steps; i++)
-    {
-        // Calculate the speed for this step based on a trapezoidal profile
-        // This is a simplified example and may not produce a perfect trapezoidal profile
-        int speed_hz;
-        if (i < steps / 3) // Acceleration phase
-        {
-            speed_hz = map(i, 0, steps / 3, 0, max_speed_hz);
-        }
-        else if (i < 2 * steps / 3) // Constant speed phase
-        {
-            speed_hz = max_speed_hz;
-        }
-        else // Deceleration phase
-        {
-            speed_hz = map(i, 2 * steps / 3, steps, max_speed_hz, 0);
-        }
 
-        rmt_item32_t pulse = {{{(uint16_t)(1000000 / speed_hz / 2), 1, (uint16_t)(1000000 / speed_hz / 2), 0}}};
-        this->pulse_buf[i] = pulse;
+
+void DRV8462::pullStepLow() {
+    if (this->isHigh) {
+        gpio_set_level(gpio_num_t(STEP_PIN), 0); // Fast ESP-IDF call
+        this->isHigh = false;
     }
+}
 
-    // clear previous pulses in RMT buffer
-    rmt_tx_stop(RMT_CHANNEL);
+void DRV8462::step(bool dir) {
+    // Set direction
+    gpio_set_level(gpio_num_t(DIR_PIN), dir ? 1 : 0); 
+    
+    // The DRV8462 requires a minimum direction setup time (typically 200ns).
+    // At 240MHz, a few NOPs or the function call overhead itself is usually enough,
+    // but keep an eye on this if the motor steps the wrong way occasionally.
 
-    // Send the items (this is non-blocking)
-    rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
+    // Fire the step pulse
+    gpio_set_level(gpio_num_t(STEP_PIN), 1); 
+    this->isHigh = true;
+
+    
 }

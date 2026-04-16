@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-Motor::Motor() : currentPosition(0), setpointPosition(0), currentVelocity(0.0f), stepAccumulator(0.0f), driver(), encoder(ENCODER_A_PIN, ENCODER_B_PIN, ENCODER_COUNTER_ID) {}
+Motor::Motor() : currentPosition(0), setpointPosition(0), driver(), encoder(ENCODER_A_PIN, ENCODER_B_PIN, ENCODER_COUNTER_ID) {}
 
 void Motor::init()
 {
@@ -17,27 +17,17 @@ void Motor::init()
 void Motor::startTimer()
 {
 
-    TimerHandle_t motor_timer = xTimerCreate("motor_timer",
-                                             pdMS_TO_TICKS(MOTOR_TIMER_RATE),
-                                             pdTRUE,
-                                             (void *)this, // Pass the Motor instance as timer ID
-                                             [](TimerHandle_t xTimer)
-                                             {
-                                                 // Timer callback function lambda
-                                                 // retrieve the Motor instance from the timer ID and call the timerCallback method
-                                                 Motor *motor = static_cast<Motor *>(pvTimerGetTimerID(xTimer));
-                                                 motor->timerCallback();
-                                             });
 
-    if (!motor_timer)
-    {
-        Serial.printf("ERROR: Motor timer could not be created\n");
-    }
-
-    if (xTimerStart(motor_timer, 0) != pdPASS)
-    {
-        Serial.printf("ERROR: Motor timer could not be started\n");
-    }
+    // start the 20khz timer
+    const esp_timer_create_args_t timer_args = {
+        .callback = [](void *arg) { // Timer callback function lambda
+            Motor *motor = static_cast<Motor *>(arg);
+            motor->isrCallback();
+        },
+        .arg = this, // Pass 'this' instance
+        .name = "isr_timer"};
+    esp_timer_create(&timer_args, &timer_handle);
+    esp_timer_start_periodic(timer_handle, 50); // 50us period for 20kHz frequency
 }
 
 /**
@@ -59,6 +49,8 @@ void Motor::setPosition(int position)
 {
     this->currentPosition = position;
     this->encoder.setCount(position);
+    this->driver_step_count = position; // assume driver is in sync with encoder when manually setting position
+
 }
 
 void Motor::enable()
@@ -71,89 +63,50 @@ void Motor::disable()
     this->driver.disable();
 }
 
-/**
- * @brief Timer callback function for the motor timer. This function will be called every MOTOR_TIMER_RATE milliseconds. It calculates the number of steps needed to move from the current position to the setpoint position, and commands the driver to move that many steps at a speed proportional to the number of steps. It then updates the current position based on the steps commanded.
- *
- */
-void Motor::timerCallback()
-{
-    float timeStep = (float)MOTOR_TIMER_RATE / 1000.0f - 0.00005; // time step in seconds, subract 50us to ensure steps finish before next timer callback
-    
-    // update current position from encoder
-    this->currentPosition = this->encoder.getSteps();
-
-
-    // calculate the ideal steps and speed
-    int stepsToMove = this->setpointPosition - this->currentPosition;
-    int speed_hz = stepsToMove / timeStep; // speed proportional to the number of steps, with a maximum of maxVelocity
-
-    
-
-    // limit acceleration
-    float acceleration = (speed_hz - this->currentVelocity) / timeStep;
-    if (acceleration > maxAcceleration)
-    {
-        speed_hz = this->currentVelocity + maxAcceleration * timeStep;
-    }
-    else if (acceleration < -maxAcceleration)
-    {
-        speed_hz = this->currentVelocity - maxAcceleration * timeStep;
-    }
-
-    // limit speed
-    if (speed_hz > maxVelocity)
-    {
-        speed_hz = maxVelocity;
-    }
-    else if (speed_hz < -maxVelocity)
-    {
-        speed_hz = -maxVelocity;
-    }
-
-    // set steps to move based on the limited speed
-    if (abs(stepsToMove) > abs(speed_hz * timeStep))
-        if ((int)(speed_hz * timeStep) != 0)
-            stepsToMove = speed_hz * timeStep;
-
-    // implement deceleration by checking if our future position and velocity would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we stop at the setpoint
-    float distanceToSetpoint = this->setpointPosition - this->currentPosition;
-    float stoppingDistance = (speed_hz * speed_hz) / (2 * maxAcceleration);
-    if (abs(distanceToSetpoint) < stoppingDistance)
-    {        
-        speed_hz = sqrt(2 * maxAcceleration * abs(distanceToSetpoint)) * (distanceToSetpoint > 0 ? 1 : -1);
-        stepsToMove = speed_hz * timeStep;
-    }
-
-    // prevent overshooting due to step quantization by checking if the steps to move would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we do not overshoot
-    if (abs(stepsToMove) > abs(distanceToSetpoint))
-    {        stepsToMove = distanceToSetpoint;
-    }
-
-    debugPrintf(">stepsToMove:%d\n", stepsToMove);
-    this->driver.moveSteps(stepsToMove, abs(speed_hz));
-    // For simplicity, we will assume that the motor moves the commanded steps instantly. In reality, you would want to track the actual position using encoder feedback and update currentPosition accordingly.
-    // this->currentPosition += stepsToMove;
-    this->currentVelocity = speed_hz;
-
-}
-
-
 
 std::string Motor::log()
 {
-    return ">pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
+    return ">pos:" + std::to_string(this->currentPosition) + "\n>driver_pos:" + std::to_string(this->driver_step_count) + "\n>setpoint:" + std::to_string(this->setpointPosition) + "\n>lead_angle:" + std::to_string(this->lead_angle_log);
 }
-
 
 uint16_t Motor::getFault()
 {
     return this->driver.readFault();
 }
 
-void Motor::setHome(int homePosition) {
+void Motor::setHome(int homePosition)
+{
     this->currentPosition = homePosition;
     this->setpointPosition = homePosition;
-    this->currentVelocity = 0.0f;
-    this->stepAccumulator = 0.0f;
     this->encoder.setCount(homePosition);
+}
+
+void Motor::isrCallback()
+{
+    // 1. Pull the step pin low immediately if it was high from the last interrupt
+    this->driver.pullStepLow(); 
+
+    // 2. Read physical rotor position
+    this->currentPosition = this->encoder.getSteps();
+
+    // 3. Compute PID effort
+    float effort = this->pid.compute(this->setpointPosition, this->currentPosition, 0.00005); 
+
+    // 4. Calculate Lead Angle (Clamped to 1 full step / 16 microsteps)
+    int lead_angle = clamp((int)effort, -16, 16); 
+
+    // 5. Calculate where the Stator (magnetic field) needs to be
+    long target_driver_pos = this->currentPosition + lead_angle; 
+
+    // 6. Conditionally step the driver to catch up to the target
+    if (this->driver_step_count < target_driver_pos) {
+        this->driver.step(true); // Step Forward
+        this->driver_step_count++;
+    } 
+    else if (this->driver_step_count > target_driver_pos) {
+        this->driver.step(false); // Step Reverse
+        this->driver_step_count--;
+    }
+    // If driver_step_count == target_driver_pos, do nothing! The motor holds.
+    this->lead_angle_log = this->currentPosition - this->driver_step_count; // for logging and debugging
 }

@@ -18,13 +18,15 @@ public:
     void enable();
     void disable();
     void moveSteps(int steps, int speed_hz);
-    void moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec);
     void stop();
     uint16_t readFault();
     uint16_t readDiag2();
     bool isAtqLearningDone();
     void printAtqLearnedParameters();
     void faultDetected();
+
+    void step(bool dir);
+    void pullStepLow();
 
 private:
     rmt_item32_t pulse_buf[MAX_PULSES];
@@ -39,4 +41,6 @@ private:
     void spiWriteRegister(uint8_t address, uint16_t data);
     uint16_t spiReadRegister(uint8_t address);
     void setupRMT();
+
+    bool isHigh = false; // track current level for step pulses
 };
