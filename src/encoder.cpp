@@ -29,7 +29,7 @@ Encoder::Encoder(gpio_num_t a, gpio_num_t b, pcnt_unit_t counterId) : counterId(
     config_b.neg_mode = PCNT_COUNT_INC;   // Count up on the negative edge of the a signal
     config_b.counter_h_lim = INT16_MAX;   // Set high limit to maximum 16-bit integer
     config_b.counter_l_lim = INT16_MIN;   // Set low limit to minimum 16-bit integer
-    config_b.channel = PCNT_CHANNEL_1;    // Use channel 0 of the PCNT unit
+    config_b.channel = PCNT_CHANNEL_1;    // Use channel 1 of the PCNT unit
     config_b.unit = counterId;
 
     pcnt_unit_config(&config_b);
