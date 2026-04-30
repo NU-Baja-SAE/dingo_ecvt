@@ -55,6 +55,11 @@ int Motor::getPosition()
     return this->currentPosition;
 }
 
+int Motor::getSetpoint()
+{
+    return this->setpointPosition;
+}
+
 void Motor::setPosition(int position)
 {
     this->currentPosition = position;
@@ -81,7 +86,7 @@ void Motor::timerCallback()
     
     // update current position from encoder
     this->currentPosition = this->encoder.getSteps();
-
+    this->currentVelocity = (this->currentPosition - this->lastPosition) / timeStep; // calculate velocity based on change in position over time step
 
     // calculate the ideal steps and speed
     int stepsToMove = this->setpointPosition - this->currentPosition;
@@ -133,7 +138,9 @@ void Motor::timerCallback()
     this->driver.moveSteps(stepsToMove, abs(speed_hz));
     // For simplicity, we will assume that the motor moves the commanded steps instantly. In reality, you would want to track the actual position using encoder feedback and update currentPosition accordingly.
     // this->currentPosition += stepsToMove;
-    this->currentVelocity = speed_hz;
+    // this->currentVelocity = speed_hz;
+
+    this->lastPosition = this->currentPosition; // update last position for velocity calculation in the next timer callback
 
 }
 
@@ -152,7 +159,7 @@ uint16_t Motor::getFault()
 
 void Motor::setHome(int homePosition) {
     this->currentPosition = homePosition;
-    this->setpointPosition = homePosition;
+    // this->setpointPosition = homePosition;
     this->currentVelocity = 0.0f;
     this->stepAccumulator = 0.0f;
     this->encoder.setCount(homePosition);

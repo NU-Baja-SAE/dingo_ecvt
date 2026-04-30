@@ -10,9 +10,11 @@
 
 // SECTION: Pulse counter configurations
 
+#define EDGES_PER_MAGNET 1 // Set to 1 if the hall sensor outputs one pulse per magnet, set to 2 if it outputs two pulses per magnet (e.g. if it detects both rising and falling edges of the magnetic field)
+
 #define PRIMARY_HALL_PIN GPIO_NUM_26
 #define PRIMARY_COUNTER_ID PCNT_UNIT_1
-#define PRIMARY_MAGNET_COUNT 3
+#define PRIMARY_MAGNET_COUNT 6
 
 #define SECONDARY_HALL_PIN GPIO_NUM_27
 #define SECONDARY_COUNTER_ID PCNT_UNIT_3
@@ -24,10 +26,12 @@
 #define ENCODER_B_PIN GPIO_NUM_35
 #define ENCODER_COUNTER_ID PCNT_UNIT_2
 
-// SECTION: Misc Pin configurations
-#define LIN_POT_PIN GPIO_NUM_39
-#define HOME_VOLTAGE 2270
-#define MAX_VOLTAGE 4000
+// SECTION: Limit Switch configurations
+#define LIMIT_SWITCH_PIN GPIO_NUM_39
+#define LIMIT_SWITCH_POS -7500 // in units of steps, location of sheave when limit switch is triggered
+
+// SECTION: Manual Mode configurations
+#define MANUAL_MODE_PIN GPIO_NUM_36
 
 
 // SECTION: Timer configurations
@@ -95,31 +99,37 @@
 #define LOW_GEAR 3.6
 #define HIGH_GEAR 0.9
 
+
+// SECTION: BRAKE CONFIGURATIONS
+#define BRAKE_THRESHOLD 0.5f // threshold for brake pedal position to switch to brake
+
+
 // secondary rpm thresholds for gear shifting, calculated based on engine rpm and gear ratios
 #define SLIP_SPEED ENGINE_ENGAGE_RPM / LOW_GEAR 
 #define CRUISE_LOW ENGINE_IDEAL_RPM / LOW_GEAR
 #define CRUISE_HIGH ENGINE_IDEAL_RPM / HIGH_GEAR
 
 #define MIN_MOTOR_SETPOINT 0
-#define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 11 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
+// #define MAX_MOTOR_SETPOINT STEPS_PER_REVOLUTION * 11 // 5 mm pitch leadscrew, 40mm travel = 10 revolutions, 25,600
+#define MAX_MOTOR_SETPOINT 31000 // 5 mm pitch leadscrew, 3200 steps per revolution
 
 
 #define LOW_SHEAVE_SETPOINT 20 // tune this, point where sheave starts to engage
-#define LOW_MAX_SETPOINT 5000 // tune this, point sheave is fully engaged at low gear
-#define LIMIT_SWITCH_HOME_OFFSET -2000
+#define LOW_MAX_SETPOINT 20000 // tune this, point sheave is fully engaged at low gear
+#define HOME_POSITION 0
 
 #define clamp(x, min, max) (x < min ? min : x > max ? max : x)
 #define lerp(a, b, k) (a + (b - a) * k)
 
 
-#define RPM_Kp 3.0
+#define RPM_Kp 2.0
 #define RPM_Kd 0
 
 
 
 // rate limited debug printf
 #define DEBUG_RATE_LIMIT_MS 100
-#define debugPrintf(...) do { \
+#define debugPrintf(...) do {\
     static uint32_t lastPrintTime = 0; \
     uint32_t currentTime = millis(); \
     if (currentTime - lastPrintTime >= DEBUG_RATE_LIMIT_MS) { \
@@ -127,3 +137,9 @@
         lastPrintTime = currentTime; \
     } \
 } while(0)
+
+
+
+
+// SECTION: DEBUG MODES
+#define CAN_DEBUG

@@ -12,4 +12,6 @@ void setup() {
 void loop() {
   delay(50);
   Serial.println(controller.log().c_str());
+  Serial.printf(">manual_mode:%d\n", analogRead(MANUAL_MODE_PIN));
+  Serial.printf(">limit:%d\n", analogRead(LIMIT_SWITCH_PIN));
 }

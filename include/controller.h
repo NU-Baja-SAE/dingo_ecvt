@@ -40,25 +40,30 @@ class Controller {
         void init();
         TimerHandle_t controller_timer; // Made public for health checks in main.cpp
         std::string log() {
+            // return motor.log() + "\n>Engine_RPM:" + std::to_string(enginePulseCounter.getFilteredRPM()) + 
+            //        "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM()) + "\n>lin_voltage:" + std::to_string(analogRead(GPIO_NUM_39));
             return motor.log() + "\n>Engine_RPM:" + std::to_string(enginePulseCounter.getFilteredRPM()) + 
-                   "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM()) + "\n>lin_pot:" + std::to_string(this->lin_pot_pos);
+                   "\n>Secondary_RPM:" + std::to_string(secondaryPulseCounter.getFilteredRPM());
         }
 
     private:
         void timerCallback();
-        float powerGearRatio(float engineRPM, float secondaryRPM);
-        int gearRatioToSetpoint(float gearRatio);
+        // float powerGearRatio(float engineRPM, float secondaryRPM);
+        // int gearRatioToSetpoint(float gearRatio);
         int rpmToSetpoint(float engineRPM);
-        void readLinPot();
+        int homingRoutine();
+        void sendCan();
+        void readCan();
+
+
         float last_Error;
-        int lin_pot_pos;
-        LowPassFilter linPotFilter = LowPassFilter(0.4);
+        float brake_pos = 0.0f;
         Motor motor;
         PulseCounter enginePulseCounter;
         PulseCounter secondaryPulseCounter;
         BajaCan can;
-        ControlMode controlMode = POWER; 
-        PID gearRatioPID = PID(20.0, 0.0, 0.0);
+        ControlMode controlMode = HOMING; 
+        // PID gearRatioPID = PID(20.0, 0.0, 0.0);
 
 };
 

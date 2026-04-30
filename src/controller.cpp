@@ -41,17 +41,10 @@ void Controller::init()
         Serial.printf("ERROR: Controller timer could not be started\n");
     }
 
+    pinMode(LIMIT_SWITCH_PIN, INPUT);
     motor.init();   // Start the motor timer as well
     motor.enable(); // Enable the motor driver
     can.begin();    // Start the CAN bus
-
-    // read lineer potentiometer to set initial position
-    for (int i = 0; i < 5; i++) // read a few times to let the low-pass filter stabilize
-    {
-        this->readLinPot();
-        delay(1);
-    }
-    this->motor.setPosition(this->lin_pot_pos);
 }
 
 /**
@@ -64,25 +57,33 @@ void Controller::timerCallback()
     int32_t motorSetpoint = 0;
 
     float engineRPM = enginePulseCounter.getRPM();
-    this->readLinPot();
+    bool limitSwitchState = analogRead(LIMIT_SWITCH_PIN) > 2000;
 
     switch (this->controlMode)
     {
     case POWER:
-        /* code */
+        if (limitSwitchState)
+        {
+            this->motor.setHome(LIMIT_SWITCH_POS);
+        }
         motorSetpoint = this->rpmToSetpoint(engineRPM);
         break;
-    case DEBUG:
 
+    case DEBUG:
         motorSetpoint = constrain(map(millis(), 0, 1000, 0, STEPS_PER_REVOLUTION), 0, STEPS_PER_REVOLUTION);
         break;
 
+    case HOMING:
+        motorSetpoint = this->homingRoutine();
+        break;
+
+    case BRAKE:
+        motorSetpoint = IDLE_SHEAVE_POSITION;
     default:
         break;
     }
 
     // set motor setpoint
-
     motor.setSetpoint(motorSetpoint);
 
     // check for motor faults
@@ -92,24 +93,8 @@ void Controller::timerCallback()
         Serial.printf("Motor fault detected! Fault code: 0x%X\n", fault);
     }
 
-    // send engine RPM and secondary RPM over CAN bus for telemetry
-    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, engineRPM);
-    esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
-    if (ret != ESP_OK)
-    {
-        Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
-    }
-    CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, motorSetpoint);
-    ret = can.writeMessage(motorSetpointMsg, 0);
-    if (ret != ESP_OK)
-    {
-        Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
-    }
-
-    twai_status_info_t status;
-    if (twai_get_status_info(&status) == ESP_OK) {
-        Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
-    }
+    this->sendCan();
+    this->readCan();
 }
 
 int Controller::rpmToSetpoint(float rpm)
@@ -119,10 +104,6 @@ int Controller::rpmToSetpoint(float rpm)
     {
         return MIN_MOTOR_SETPOINT;
     }
-    // else if (rpm > MAX_RPM) // if the rpm is greater than the max rpm
-    // {
-    //     return MAX_SHEAVE_SETPOINT;
-    // }
     else // P controller for RPM setpoint
     {
 
@@ -137,18 +118,119 @@ int Controller::rpmToSetpoint(float rpm)
         low_setpoint = clamp(low_setpoint, LOW_SHEAVE_SETPOINT, LOW_MAX_SETPOINT);
 
         this->last_Error = rpmError;
-
         // Serial.printf(">rpmError:%.2f\nd_error:%.2f\nlow_setpoint:%.2f\nd_setpoint:%.2f\n", rpmError, d_error, low_setpoint, d_setpoint);
-
         return clamp(this->motor.getPosition() + d_setpoint, low_setpoint, MAX_MOTOR_SETPOINT);
     }
 }
 
-// reads lin pot and converts the voltage to a position in steps
-void Controller::readLinPot()
+
+
+
+#define HOME_SPEED 400 
+#define HOME_SPEED_SLOW 50
+// implement a 3 step homing routine where the motor first moves outwards until the limit switch is triggered, then moves inwards a little bit, then moves outwards again slowly until the limit switch is triggered again, and then sets the current position as the idle sheave position (0)
+int Controller::homingRoutine()
 {
-    // read linear potentiometer value and convert to position in steps
-    int linPotValue = analogRead(LIN_POT_PIN);
-    int new_lin_pot_pos = map(linPotValue, HOME_VOLTAGE, MAX_VOLTAGE, LIMIT_SWITCH_HOME_OFFSET, MAX_MOTOR_SETPOINT);
-    this->lin_pot_pos = linPotFilter.filter(new_lin_pot_pos);
+
+    static bool firstLimitSwitchTriggered = false;
+    static unsigned long limitSwitchTriggerTime = 0;
+
+    // check limit switch state, active high
+    bool limitSwitchState = analogRead(LIMIT_SWITCH_PIN) > 2000; // limit switch is triggered when the pin reads LOW due to pull-down configuration (normally closed switch to power)
+
+    if (!firstLimitSwitchTriggered)
+    {
+        if (limitSwitchState)
+        { // if the limit switch is already triggered, we are at the outer limit, so move inwards
+            firstLimitSwitchTriggered = true;
+            limitSwitchTriggerTime = millis();
+            return this->motor.getPosition();
+        }
+        else
+        { // if the limit switch is not triggered, move outwards until it is triggered
+            return this->motor.getPosition() - HOME_SPEED;
+        }
+    }
+    else if (firstLimitSwitchTriggered && (millis() - limitSwitchTriggerTime < 400))
+    {                                           // move outwards for 0.5 seconds after first trigger to ensure we are fully out of the limit switch, then move inwards a little bit
+        return this->motor.getPosition() + HOME_SPEED; // move inwards a little bit
+    }
+    else if (firstLimitSwitchTriggered)
+    { // after moving inwards, move outwards slowly until limit switch is triggered again
+        if (limitSwitchState)
+        { // if limit switch is triggered again, we are at the home position
+            // set current position as idle sheave position (0)
+            this->motor.setHome(LIMIT_SWITCH_POS);
+            // reset static variables for next homing routine
+            firstLimitSwitchTriggered = false;
+            limitSwitchTriggerTime = 0;
+            this->controlMode = POWER;              // switch to normal control mode after homing
+            return this->motor.getPosition() + 800; // move outwards a little bit to ensure we are not triggering the switch anymore
+        }
+        else
+        {                                          // if limit switch is not triggered, keep moving outwards slowly
+            return this->motor.getPosition() - HOME_SPEED_SLOW; // move outwards slowly
+        }
+    }
+
+    return this->motor.getPosition(); // default return current position
+}
+
+
+
+void Controller::sendCan() {
+    // send engine RPM and secondary RPM over CAN bus for telemetry
+    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, this->enginePulseCounter.getFilteredRPM());
+    esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
+    
+    if (ret != ESP_OK)
+    {
+        #ifdef CAN_DEBUG
+        Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
+        #endif
+    }
+
+    CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, this->motor.getSetpoint());
+    ret = can.writeMessage(motorSetpointMsg, 0);
+    if (ret != ESP_OK)
+    {
+        #ifdef CAN_DEBUG
+        Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
+        #endif
+    }
+
+    CanMessage motorPositionMsg(CanDatabase::MOTOR_POSITION.id, this->motor.getPosition());
+    ret = can.writeMessage(motorPositionMsg, 0);
+    if (ret != ESP_OK)    {
+        #ifdef CAN_DEBUG
+        Serial.printf("Failed to send MOTOR_POSITION message. Error code: %s\n", esp_err_to_name(ret));
+        #endif
+    }
+
+    #ifdef CAN_DEBUG
+    twai_status_info_t status;
+    if (twai_get_status_info(&status) == ESP_OK) {
+        Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
+    }
+    #endif
+}
+
+void Controller::readCan() {
+    // read CAN messages and update control mode accordingly
+    CanMessage message;
+    while (can.readMessage(message, 0) == ESP_OK) {
+        if (message.getId() == CanDatabase::BRAKE_POT.id && message.getDataType() == CanDatabase::BRAKE_POT.type) {
+            this->brake_pos = message.getFloat();
+            #ifdef CAN_DEBUG
+            Serial.printf(">BRAKE_POT:%.2f\n", this->brake_pos);
+            #endif
+
+            // if brake is pressed more than 50%, go to brake mode, otherwise go to power mode
+            if (this->brake_pos > BRAKE_THRESHOLD) {
+                this->controlMode = BRAKE;
+            } else {
+                this->controlMode = POWER;  
+            }
+        }
+    }
 }

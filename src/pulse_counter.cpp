@@ -1,5 +1,6 @@
 #include "pulse_counter.h"
 #include <limits.h>
+#include "config.h"
 
 
 /**
@@ -101,8 +102,8 @@ float PulseCounter::getRPM() {
     }
 
     // Counter is configured to count both rising and falling edges.
-    constexpr float edgesPerMagnet = 2.0f;
-    float pulsesPerRevolution = static_cast<float>(magnetCount) * edgesPerMagnet;
+
+    float pulsesPerRevolution = static_cast<float>(magnetCount) * EDGES_PER_MAGNET;
 
     float rpm = 0.0f;
     if (deltaCount > 0 && pulsesPerRevolution > 0.0f) {
@@ -112,10 +113,16 @@ float PulseCounter::getRPM() {
     lastCount = currentCount;
     lastSampleTimeMs = currentTimeMs;
 
+    // if (rpm > 4800.0f) {
+    //     rpm = rpm/2;
+    // }
+
     // apply low-pass filter to smooth out RPM readings
     rpm = rpmFilter.filter(rpm);
     filteredRPM = rpm;
-    return rpm;
 
+    
+
+    return rpm;
 }
 

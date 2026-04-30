@@ -45,27 +45,41 @@ Encoder::Encoder(gpio_num_t a, gpio_num_t b, pcnt_unit_t counterId) : counterId(
 
 int Encoder::getCount()
 {
-    int16_t count;
-    pcnt_get_counter_value(counterId, &count);
-    return count + this->offset;
+    int16_t raw_count;
+    pcnt_get_counter_value(counterId, &raw_count);
+
+    int32_t count = static_cast<int32_t>(raw_count) + this->offset;
+
+    // Keep the hardware counter near zero so long runs do not hit the 16-bit PCNT limit.
+    if (raw_count != 0)
+    {
+        this->offset = count;
+        pcnt_counter_clear(counterId);
+    }
+
+    this->full_revs = count / COUNT_PER_REV;
+    this->last_count = count;
+    return count;
 }
 
-#define COUNT_PER_REV 4096
 // returns the encoder position in units of stepper motor steps
 int Encoder::getSteps() {
-    int16_t count;
-    pcnt_get_counter_value(counterId, &count);
-    return map(count, 0, COUNT_PER_REV, 0, STEPS_PER_REVOLUTION);
+    int32_t count = this->getCount();
+    return (count * STEPS_PER_REVOLUTION) / COUNT_PER_REV;
 }
 
 void Encoder::resetCount()
 {
     pcnt_counter_clear(counterId);
     offset = 0;
+    full_revs = 0;
+    last_count = 0;
 }
 
 void Encoder::setCount(int count)
 {
     pcnt_counter_clear(counterId);
     offset = count;
+    full_revs = count / COUNT_PER_REV;
+    last_count = count;
 }
