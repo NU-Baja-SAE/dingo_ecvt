@@ -16,9 +16,9 @@
 #define PRIMARY_COUNTER_ID PCNT_UNIT_1
 #define PRIMARY_MAGNET_COUNT 6
 
-#define SECONDARY_HALL_PIN GPIO_NUM_27
-#define SECONDARY_COUNTER_ID PCNT_UNIT_3
-#define SECONDARY_MAGNET_COUNT 6
+// #define SECONDARY_HALL_PIN GPIO_NUM_27
+// #define SECONDARY_COUNTER_ID PCNT_UNIT_3
+// #define SECONDARY_MAGNET_COUNT 6
 
 // SECTION: Encoder configurations
 
@@ -32,6 +32,7 @@
 
 // SECTION: Manual Mode configurations
 #define MANUAL_MODE_PIN GPIO_NUM_36
+
 
 
 // SECTION: Timer configurations
@@ -61,7 +62,7 @@
 // Auto torque configuration
 #define ATQ_ENABLE 1
 #define ATQ_TRQ_MIN_CURRENT 20 
-#define ATQ_TRQ_MAX_CURRENT 80
+#define ATQ_TRQ_MAX_CURRENT 100
 
 // Use previously learned ATQ constants (production mode)
 #define ATQ_USE_LEARNED_PARAMS 1
@@ -93,7 +94,7 @@
 
 #define ENGINE_IDLE_RPM 1600
 #define ENGINE_ENGAGE_RPM 2000
-#define ENGINE_IDEAL_RPM 3000
+#define ENGINE_IDEAL_RPM 2400
 #define ENGINE_MAX_RPM 3600
 
 #define LOW_GEAR 3.6
@@ -102,6 +103,7 @@
 
 // SECTION: BRAKE CONFIGURATIONS
 #define BRAKE_THRESHOLD 0.5f // threshold for brake pedal position to switch to brake
+#define BRAKE_PIN GPIO_NUM_27
 
 
 // secondary rpm thresholds for gear shifting, calculated based on engine rpm and gear ratios

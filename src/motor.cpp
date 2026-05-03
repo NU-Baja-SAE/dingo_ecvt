@@ -92,7 +92,8 @@ void Motor::timerCallback()
     int stepsToMove = this->setpointPosition - this->currentPosition;
     int speed_hz = stepsToMove / timeStep; // speed proportional to the number of steps, with a maximum of maxVelocity
 
-    
+    // determine which max acceleration to use based on whether we are moving forwards or backwards
+    int maxAcceleration = this->currentVelocity > 0 ? maxAcceleration_pos : maxAcceleration_neg;
 
     // limit acceleration
     float acceleration = (speed_hz - this->currentVelocity) / timeStep;
@@ -122,6 +123,9 @@ void Motor::timerCallback()
 
     // implement deceleration by checking if our future position and velocity would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we stop at the setpoint
     float distanceToSetpoint = this->setpointPosition - this->currentPosition;
+
+    
+
     float stoppingDistance = (speed_hz * speed_hz) / (2 * maxAcceleration);
     if (abs(distanceToSetpoint) < stoppingDistance)
     {        
@@ -148,7 +152,7 @@ void Motor::timerCallback()
 
 std::string Motor::log()
 {
-    return ">pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
+    return "\n>pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
 }
 
 

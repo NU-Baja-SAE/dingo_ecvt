@@ -7,7 +7,6 @@
 
 Controller::Controller() : motor(),
                            enginePulseCounter(PRIMARY_HALL_PIN, PRIMARY_COUNTER_ID, PRIMARY_MAGNET_COUNT),
-                           secondaryPulseCounter(SECONDARY_HALL_PIN, SECONDARY_COUNTER_ID, SECONDARY_MAGNET_COUNT),
                            can(CAN_TX_PIN, CAN_RX_PIN)
 {
 }
@@ -58,15 +57,20 @@ void Controller::timerCallback()
 
     float engineRPM = enginePulseCounter.getRPM();
     bool limitSwitchState = analogRead(LIMIT_SWITCH_PIN) > 2000;
+    this->brake_pressed = analogRead(BRAKE_PIN) > 1000;
 
     switch (this->controlMode)
     {
     case POWER:
-        if (limitSwitchState)
-        {
-            this->motor.setHome(LIMIT_SWITCH_POS);
-        }
+        // if (limitSwitchState)
+        // {
+        //     this->motor.setHome(LIMIT_SWITCH_POS);
+        // }
+
         motorSetpoint = this->rpmToSetpoint(engineRPM);
+        if (this->brake_pressed) {
+            motorSetpoint = IDLE_SHEAVE_POSITION;
+        }
         break;
 
     case DEBUG:
@@ -207,6 +211,14 @@ void Controller::sendCan() {
         #endif
     }
 
+    CanMessage brakeStateMsg(CanDatabase::SECONDARY_RPM.id, (float)(this->brake_pressed ? 1 : 0));
+    ret = can.writeMessage(brakeStateMsg, 0);
+    if (ret != ESP_OK)    {
+        #ifdef CAN_DEBUG
+        Serial.printf("Failed to send BRAKE_STATE message. Error code: %s\n", esp_err_to_name(ret));
+        #endif
+    }
+
     #ifdef CAN_DEBUG
     twai_status_info_t status;
     if (twai_get_status_info(&status) == ESP_OK) {
@@ -231,6 +243,13 @@ void Controller::readCan() {
             } else {
                 this->controlMode = POWER;  
             }
+        } else if (message.getId() == CanDatabase::LINEAR_SPEED.id && message.getDataType() == CanDatabase::LINEAR_SPEED.type) {
+            float linearSpeed = message.getFloat();
+            #ifdef CAN_DEBUG
+            Serial.printf(">LINEAR_SPEED:%.2f\n", linearSpeed);
+            #endif
+
         }
+
     }
 }
