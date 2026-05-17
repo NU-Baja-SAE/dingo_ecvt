@@ -4,8 +4,7 @@
 
 Encoder::Encoder(gpio_num_t a, gpio_num_t b, pcnt_unit_t counterId) : counterId(counterId)
 {
-    // Configure PCNT unit
-
+    // Configure PCNT unit channels for quadrature decoding.
     pcnt_config_t config_a;
     config_a.pulse_gpio_num = a;
     config_a.ctrl_gpio_num = b;
@@ -34,11 +33,11 @@ Encoder::Encoder(gpio_num_t a, gpio_num_t b, pcnt_unit_t counterId) : counterId(
 
     pcnt_unit_config(&config_b);
 
-     // set filter value to ignore glitches, this is in units of APB clock cycles, so for 80MHz clock, 1000 = 12.5us
+    // Set filter value to ignore glitches (APB clock cycles).
     pcnt_set_filter_value(counterId, 1000);
     pcnt_filter_enable(counterId);
 
-    // clear and start the counter
+    // Clear and start the counter.
     pcnt_counter_clear(counterId);
     pcnt_counter_resume(counterId);
 }
@@ -62,7 +61,9 @@ int Encoder::getCount()
     return count;
 }
 
-// returns the encoder position in units of stepper motor steps
+/**
+ * @brief Return encoder position in stepper motor steps.
+ */
 int Encoder::getSteps() {
     int32_t count = this->getCount();
     return (count * STEPS_PER_REVOLUTION) / COUNT_PER_REV;

@@ -42,9 +42,9 @@
 
 #include <Arduino.h>
 
-// MACROs
-
-// SPI Protocol
+/**
+ * @brief SPI protocol constants.
+ */
 #define SPI_ADDRESS_MASK 0x3F00 // Mask for SPI register address bits
 #define SPI_ADDRESS_POS 8       // Position for SPI register address bits
 #define SPI_DATA_MASK 0x00FF    // Mask for SPI register data bits
@@ -52,7 +52,9 @@
 #define SPI_RW_BIT_MASK 0x4000  // Mask for SPI register read write indication bit
 #define SPI_CLK 1000000         // 1 MHz
 
-// DRV8xx2 SPI Register Addresses
+/**
+ * @brief DRV8xx2 SPI register addresses.
+ */
 #define SPI_FAULT                               (uint8_t)(0x00)         // FAULT Register
 #define SPI_DIAG1                               (uint8_t)(0x01)         // DIAG1 Register
 #define SPI_DIAG2                               (uint8_t)(0x02)         // DIAG2 Register
@@ -109,7 +111,9 @@
 #define SPI_SILENTSTEP_CTRL5                    (uint8_t)(0x35)         // SILENTSTEP_CTRL5 Register
 #define SPI_CTRL14                              (uint8_t)(0x3C)         // CTRL14 Register
 
-// Bit Mask definitions for Registers
+/**
+ * @brief Bit mask definitions for registers.
+ */
 
 // Register 0x00: FAULT Register
 #define OL_MASK               (0x01)         // Indicates open load condition

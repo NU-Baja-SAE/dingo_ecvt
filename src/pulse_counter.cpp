@@ -4,11 +4,10 @@
 
 
 /**
- * @brief Construct a new Pulse Counter:: Pulse Counter object
- * 
- * @param hallPin GPIO pin connected to the hall sensor output
- * @param counterId PCNT unit to use for this counter (e.g. PCNT_UNIT_0, PCNT_UNIT_1, etc.)
- * @param magnetCount Number of magnets on the wheel, used for RPM calculation
+ * @brief Construct a pulse counter configured for a Hall sensor.
+ * @param hallPin GPIO pin connected to the Hall sensor output.
+ * @param counterId PCNT unit to use (PCNT_UNIT_0, PCNT_UNIT_1, etc.).
+ * @param magnetCount Number of magnets on the wheel.
  */
 PulseCounter::PulseCounter(gpio_num_t hallPin, pcnt_unit_t counterId, int magnetCount) : counterId(counterId), magnetCount(magnetCount) {
 
@@ -33,19 +32,17 @@ PulseCounter::PulseCounter(gpio_num_t hallPin, pcnt_unit_t counterId, int magnet
 
     pcnt_unit_config(&config);
 
-    // set filter value to ignore glitches, this is in units of APB clock cycles, so for 80MHz clock, 1000 = 12.5us
+    // Set filter to ignore glitches. Units are APB clock cycles.
     pcnt_set_filter_value(counterId, 1000);
     pcnt_filter_enable(counterId);
 
-    // clear and start the counter
+    // Clear and start the counter.
     pcnt_counter_clear(counterId);
     pcnt_counter_resume(counterId);
 }
 
-
 /**
- * @brief Gets the current count of the pulse counter
- * 
+ * @brief Get the current count of the pulse counter.
  */
 int PulseCounter::getCount() {
     int16_t pulse_count;
@@ -54,8 +51,7 @@ int PulseCounter::getCount() {
 }
 
 /**
- * @brief Resets the pulse counter to zero
- * 
+ * @brief Reset the pulse counter to zero.
  */
 void PulseCounter::resetCount() {
     pcnt_counter_clear(counterId);
@@ -66,9 +62,8 @@ void PulseCounter::resetCount() {
 
 
 /**
- * @brief Calculates the RPM based on the current count, magnet count, and time 
- * 
- * @return float RPM value
+ * @brief Calculate RPM from pulse delta and elapsed time.
+ * @return RPM value.
  */
 float PulseCounter::getRPM() {
     if (magnetCount <= 0) {
@@ -101,8 +96,6 @@ float PulseCounter::getRPM() {
         deltaCount -= (INT16_MAX - INT16_MIN + 1);
     }
 
-    // Counter is configured to count both rising and falling edges.
-
     float pulsesPerRevolution = static_cast<float>(magnetCount) * EDGES_PER_MAGNET;
 
     float rpm = 0.0f;
@@ -113,16 +106,9 @@ float PulseCounter::getRPM() {
     lastCount = currentCount;
     lastSampleTimeMs = currentTimeMs;
 
-    // if (rpm > 4800.0f) {
-    //     rpm = rpm/2;
-    // }
-
-    // apply low-pass filter to smooth out RPM readings
+    // Apply low-pass filter to smooth out RPM readings.
     rpm = rpmFilter.filter(rpm);
     filteredRPM = rpm;
 
-    
-
     return rpm;
 }
-

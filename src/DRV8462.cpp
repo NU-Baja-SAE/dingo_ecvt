@@ -190,8 +190,7 @@ void DRV8462::serviceAutoTorqueLearning(bool motorIsStepping)
 }
 
 /**
- * @brief Sets up the DRV8462 driver by initializing SPI communication, configuring control registers, and setting up the RMT peripheral for step pulse generation.
- *
+ * @brief Initialize SPI, GPIO, RMT, and driver configuration registers.
  */
 void DRV8462::begin()
 {
@@ -212,7 +211,7 @@ void DRV8462::begin()
 
     this->setupRMT();
 
-    // Read fault register
+    // Read fault register on startup.
     uint16_t faultReg = this->spiReadRegister(SPI_FAULT);
     if (faultReg != 0)
     {
@@ -220,14 +219,14 @@ void DRV8462::begin()
         this->faultDetected();
     }
 
-    // enable open load detection
+    // Enable open load detection.
     uint16_t ctrl9 = this->spiReadRegister(SPI_CTRL9);
     ctrl9 |= OLD_MASK; // set OLD bit
     this->spiWriteRegister(SPI_CTRL9, ctrl9);
 
-    // write to CTRL10 to set idle current 
+    // Set idle current.
     this->spiWriteRegister(SPI_CTRL10, HOLD_MOTOR_CURRENT); 
-    // read CTRL10 to make sure idle current setting is correct
+    // Read back CTRL10 to verify idle current setting.
     uint16_t ctrl10Reg = this->spiReadRegister(SPI_CTRL10);
     if (ctrl10Reg != HOLD_MOTOR_CURRENT)
     {
@@ -235,9 +234,9 @@ void DRV8462::begin()
         this->faultDetected();
     }
 
-    // write to CTRL11 to set current limit
+    // Set run current limit.
     this->spiWriteRegister(SPI_CTRL11, RUN_MOTOR_CURRENT); 
-    // read CTRL11 to make sure torque setting is correct
+    // Read back CTRL11 to verify run current setting.
     uint16_t ctrl11Reg = this->spiReadRegister(SPI_CTRL11);
     if (ctrl11Reg != RUN_MOTOR_CURRENT)
     {
@@ -245,7 +244,7 @@ void DRV8462::begin()
         this->faultDetected();
     }
 
-    // Use internal Vref
+    // Use internal Vref.
     uint16_t ctrl13 = this->spiReadRegister(SPI_CTRL13);
     ctrl13 |= VREF_MASK; // set VREF bit
     this->spiWriteRegister(SPI_CTRL13, ctrl13);
@@ -254,8 +253,7 @@ void DRV8462::begin()
 }
 
 /**
- * @brief Enables the DRV8462 driver by setting the appropriate control register bit and driving the enable pin high.
- *
+ * @brief Enable the DRV8462 driver outputs.
  */
 void DRV8462::enable()
 {
@@ -267,14 +265,12 @@ void DRV8462::enable()
 }
 
 /**
- * @brief Writes a 8-bit value to a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, and checks for any faults indicated in the response.
- *
- * @param address The register address to write to (6 bits).
- * @param data The 8-bit data value to write to the register.
+ * @brief Write an 8-bit value to a DRV8462 register over SPI.
+ * @param address The 6-bit register address.
+ * @param data The 8-bit data value.
  */
 void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
 {
-    // Implement SPI write operation to the DRV8462 registers
     uint16_t reg_value = 0;
 
     reg_value |= ((address << SPI_ADDRESS_POS) & SPI_ADDRESS_MASK); // Adding register address value
@@ -290,13 +286,13 @@ void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
 
     uint8_t dataMSB = (received >> 8) & 0xFF;
 
-    // check that first 2 bits are set
+    // Check that first 2 bits are set.
     if ((dataMSB & 0xC0) != 0xC0)
     {
         this->faultDetected();
     }
 
-    // check fault bits of MSB
+    // Check fault bits of MSB.
     if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK)
     {
         this->faultDetected();
@@ -304,10 +300,9 @@ void DRV8462::spiWriteRegister(uint8_t address, uint16_t data)
 }
 
 /**
- * @brief Reads a 8-bit value from a specified register address on the DRV8462 using SPI communication. It constructs the SPI command according to the protocol, initiates the SPI transaction, checks for any faults indicated in the response, and returns the data read from the register.
- *
- * @param address The register address to read from (6 bits).
- * @return uint16_t The 16-bit data value read from the specified register.
+ * @brief Read an 8-bit value from a DRV8462 register over SPI.
+ * @param address The 6-bit register address.
+ * @return 16-bit data value read from the register.
  */
 uint16_t DRV8462::spiReadRegister(uint8_t address)
 {
@@ -326,18 +321,18 @@ uint16_t DRV8462::spiReadRegister(uint8_t address)
     uint8_t dataMSB = (received >> 8) & 0xFF;
     uint8_t dataLSB = received & 0xFF;
 
-    // check that first 2 bits are set
+    // Check that first 2 bits are set.
     if ((dataMSB & 0xC0) != 0xC0)
     {
         this->faultDetected();
     }
-    // check fault bits of MSB
+    // Check fault bits of MSB.
     if (dataMSB & UVLO_MASK || dataMSB & CPUV_MASK || dataMSB & OCP_MASK || dataMSB & STL_MASK)
     {
         this->faultDetected();
     }
 
-    reg_value = ((((dataMSB << 8) | dataLSB) & SPI_DATA_MASK) >> SPI_DATA_POS); // complete data
+    reg_value = ((((dataMSB << 8) | dataLSB) & SPI_DATA_MASK) >> SPI_DATA_POS);
     return (reg_value);
 }
 
@@ -424,21 +419,19 @@ void DRV8462::setupRMT()
 }
 
 /**
- * @brief Moves the motor a specified number of steps at a given speed in Hz. It calculates the pulse duration based on the desired speed, constructs the RMT items for the step pulses, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
- *
- * @param steps number of steps to move (positive for one direction, negative for the other)
- * @param speed_hz speed of the steps in Hz (steps per second)
+ * @brief Move a specified number of steps at a given speed in Hz.
+ * @param steps Number of steps to move (sign sets direction).
+ * @param speed_hz Speed of the steps in Hz (steps per second).
  */
 void DRV8462::moveSteps(int steps, int speed_hz)
 {
     this->serviceAutoTorqueLearning((steps != 0) && (speed_hz > 0));
 
-    // check if last command is still executing, if so, stop it before sending new command
+    // Stop any in-flight RMT command before sending a new one.
     rmt_channel_status_result_t status;
     rmt_get_channel_status(&status);
     if (status.status[RMT_CHANNEL] == RMT_CHANNEL_BUSY)
     {
-        // Serial.println("Previous command still executing, stopping it before sending new command.");
         rmt_tx_stop(RMT_CHANNEL);
     }
 
@@ -455,22 +448,21 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         steps = MAX_PULSES;
     }
 
-    // Validate speed to avoid division by zero and unreasonable values
+    // Validate speed to avoid division by zero and unreasonable values.
     if (speed_hz <= 0)
     {
         Serial.println("Error: speed_hz must be greater than 0");
         return;
     }
 
-    // Calculate pulse duration in microseconds
-    // For a 50% duty cycle: Period = 1,000,000 / speed_hz
+    // Calculate pulse duration in microseconds.
     uint32_t duration_us = 1000000 / speed_hz / 2;
 
-    // Limit duration to RMT max (15-bit value, max 32767)
+    // Limit duration to RMT max (15-bit value, max 32767).
     if (duration_us > 32767)
         duration_us = 32767;
 
-    // Create the pulse item: High for duration_us, Low for duration_us
+    // Create the pulse item: High for duration_us, Low for duration_us.
     rmt_item32_t pulse = {{{(uint16_t)duration_us, 1, (uint16_t)duration_us, 0}}};
 
     for (int i = 0; i < steps; i++)
@@ -478,23 +470,21 @@ void DRV8462::moveSteps(int steps, int speed_hz)
         this->pulse_buf[i] = pulse;
     }
 
-    // Send the items (this is non-blocking)
+    // Send the items (non-blocking).
     rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
 }
 
 /**
- * @brief Generates a trapezoidal velocity profile to move the motor a specified number of steps with a given maximum speed and acceleration. It calculates the required pulse durations for acceleration, constant speed, and deceleration phases, constructs the RMT items for the step pulses accordingly, and sends them using the RMT peripheral. The direction pin is set according to the sign of the steps parameter.
- *
- * @param steps
- * @param max_speed_hz
- * @param acceleration_hz_per_sec
+ * @brief Generate a trapezoidal velocity profile for a move.
+ * @param steps Step count.
+ * @param max_speed_hz Maximum speed in Hz.
+ * @param acceleration_hz_per_sec Acceleration in Hz/s.
  */
 void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_per_sec)
 {
     for (int i = 0; i < steps; i++)
     {
-        // Calculate the speed for this step based on a trapezoidal profile
-        // This is a simplified example and may not produce a perfect trapezoidal profile
+        // Calculate the speed for this step based on a trapezoidal profile.
         int speed_hz;
         if (i < steps / 3) // Acceleration phase
         {
@@ -513,9 +503,9 @@ void DRV8462::moveTrapazoidal(int steps, int max_speed_hz, int acceleration_hz_p
         this->pulse_buf[i] = pulse;
     }
 
-    // clear previous pulses in RMT buffer
+    // Clear previous pulses in RMT buffer.
     rmt_tx_stop(RMT_CHANNEL);
 
-    // Send the items (this is non-blocking)
+    // Send the items (non-blocking).
     rmt_write_items(RMT_CHANNEL, this->pulse_buf, steps, false);
 }

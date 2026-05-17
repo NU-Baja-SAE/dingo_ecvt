@@ -2,27 +2,38 @@
 
 ## Overview
 
-This project implements a closed-loop control system for managing the CVT sheave position on a Baja SAE off-road vehicle. The system uses PID control to optimize engine RPM and vehicle performance by automatically adjusting the gear ratio based on sensor inputs.
+This repository contains the embedded control firmware for the Dingo ECVT system. It runs on an ESP32 and manages a DRV8462-driven stepper motor to position the CVT sheave based on engine RPM and operator-selected modes. Telemetry is published over CAN for logging and diagnostics.
 
-## Features
+## High-level architecture
 
-- **PID Position Control**: Closed-loop control of sheave position with tunable PID gains
-- **Engine RPM Monitoring**: Hall effect sensor input for primary and secondary RPM measurement
-- **Wheel Speed Sensing**: Real-time vehicle speed calculation via wheel hall sensor
-- **Brake Slam Detection**: Automatic downshift to low gear when brakes are applied suddenly
-- **CAN Telemetry**: Real-time data logging via CAN Bus for debugging and analysis
-- **FreeRTOS Tasks**: Multi-threaded operation for responsive control
+- **Control loop**: A FreeRTOS timer drives the main controller tick that selects a mode, computes a sheave position setpoint, and publishes CAN telemetry.
+- **Motor subsystem**: A dedicated motor timer applies acceleration/velocity limiting and commands the DRV8462 driver via RMT step pulses.
+- **Sensing**: Hall-effect pulse counting provides engine RPM, and a quadrature encoder provides motor position feedback.
+- **Telemetry**: CAN messages broadcast engine RPM, motor setpoint, motor position, and brake state.
 
-## Hardware
+## Detailed breakdown
 
-- **Microcontroller**: ESP32 DOIT DevKit V1
-- **Motor Driver**: DRV8462 Stepper motor driver
-- **Sensors**:
-  - Potentiometer for sheave position feedback
-  - Rotary encoder for precise position tracking
-  - Hall effect sensors for engine primary/secondary RPM
-  - Hall effect sensor for wheel speed
-  - Analog brake pedal sensor
+### Application core
+
+- `src/main.cpp`: Arduino entry points, initializes the controller, and prints telemetry snapshots for debugging.
+- `include/controller.h` / `src/controller.cpp`: Main control logic, mode selection, homing sequence, RPM-to-setpoint logic, and CAN publish/consume logic.
+
+### Motor control
+
+- `include/motor.h` / `src/motor.cpp`: Motion planner with acceleration and velocity limiting, encoder feedback, and driver commands.
+- `include/DRV8462.h` / `src/DRV8462.cpp`: DRV8462 driver SPI interface, auto-torque setup, RMT step pulse generation, and fault handling.
+- `include/DRV8462_REGMAP.h`: Register addresses and bit masks used by the driver.
+
+### Sensing and filtering
+
+- `include/encoder.h` / `src/encoder.cpp`: Quadrature encoder reader using ESP32 PCNT hardware.
+- `include/pulse_counter.h` / `src/pulse_counter.cpp`: Hall sensor pulse counter with RPM calculation and low-pass filtering.
+- `include/filter.h`: Small low-pass filter utility used for RPM smoothing.
+
+### Configuration and integration
+
+- `include/config.h`: Pin mappings, timer rates, motor and controller constants, and debug flags.
+- `lib/baja_can/`: CAN transport library (TWAI wrapper and typed message helpers).
 
 ## Repository structure
 
@@ -35,6 +46,8 @@ dingo_ecvt/
 │  ├─ motor.h               # Motor control interface
 │  ├─ config.h              # Hardware pin mappings and constants
 │  ├─ pulse_counter.h       # Hall sensor pulse counter interface
+│  ├─ encoder.h             # Quadrature encoder interface
+│  ├─ filter.h              # Simple low-pass filter utility
 │  ├─ DRV8462_REGMAP.h      # Register map for DRV8462 motor driver
 │  └─ DRV8462.h             # Motor driver interface
 ├─ lib/                     # Local libraries and submodules
@@ -48,23 +61,6 @@ dingo_ecvt/
    ├─ main.cpp              # Application entry point
    ├─ motor.cpp             # Motor control implementation
    ├─ pulse_counter.cpp     # Hall sensor pulse counter implementation
-   └─ DRV8462.cpp           # Motor drive implementation
+   ├─ encoder.cpp           # Encoder implementation
+   └─ DRV8462.cpp           # Motor driver implementation
 ```
-
-
-## TODO
-
-- Encoder
-  - Read PWM signal
-  - handle full revolution
-  - encoperate into motor control loop
-
-- Implement pulse counter rpm reading + filtering
-- Implement gear ration control
-- implement brake detection
-  - read brake value from CAN
-- implemement modes
-
-- tune 
-
-- wireing harness

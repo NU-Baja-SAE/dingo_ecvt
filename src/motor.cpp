@@ -1,4 +1,3 @@
-// This file implements motor control for the ECVT
 #include "motor.h"
 #include "config.h"
 
@@ -11,8 +10,7 @@ void Motor::init()
 }
 
 /**
- * @brief Starts the motor timer. The motor timer will call the timerCallback method every MOTOR_TIMER_RATE milliseconds. This method should be called in the Controller::startTimer() method to ensure that the motor timer is started when the controller timer is started.
- *
+ * @brief Start the FreeRTOS timer that drives motion updates.
  */
 void Motor::startTimer()
 {
@@ -41,9 +39,8 @@ void Motor::startTimer()
 }
 
 /**
- * @brief Sets the target position for the motor
- *
- * @param position in units of encoder counts, where 0 is the idle position, and the positive direction is towards the engine
+ * @brief Set the target motor position in step units.
+ * @param position Target step position (0 = idle).
  */
 void Motor::setSetpoint(int position)
 {
@@ -77,25 +74,24 @@ void Motor::disable()
 }
 
 /**
- * @brief Timer callback function for the motor timer. This function will be called every MOTOR_TIMER_RATE milliseconds. It calculates the number of steps needed to move from the current position to the setpoint position, and commands the driver to move that many steps at a speed proportional to the number of steps. It then updates the current position based on the steps commanded.
- *
+ * @brief Motor control tick that applies acceleration/velocity limits.
  */
 void Motor::timerCallback()
 {
-    float timeStep = (float)MOTOR_TIMER_RATE / 1000.0f - 0.00005; // time step in seconds, subract 50us to ensure steps finish before next timer callback
+    float timeStep = (float)MOTOR_TIMER_RATE / 1000.0f - 0.00005; // subtract 50us to ensure steps finish before next tick
     
-    // update current position from encoder
+    // Update current position from encoder feedback.
     this->currentPosition = this->encoder.getSteps();
     this->currentVelocity = (this->currentPosition - this->lastPosition) / timeStep; // calculate velocity based on change in position over time step
 
-    // calculate the ideal steps and speed
+    // Calculate the ideal steps and speed.
     int stepsToMove = this->setpointPosition - this->currentPosition;
     int speed_hz = stepsToMove / timeStep; // speed proportional to the number of steps, with a maximum of maxVelocity
 
-    // determine which max acceleration to use based on whether we are moving forwards or backwards
+    // Determine which acceleration limit to use based on motion direction.
     int maxAcceleration = this->currentVelocity > 0 ? maxAcceleration_pos : maxAcceleration_neg;
 
-    // limit acceleration
+    // Limit acceleration.
     float acceleration = (speed_hz - this->currentVelocity) / timeStep;
     if (acceleration > maxAcceleration)
     {
@@ -106,7 +102,7 @@ void Motor::timerCallback()
         speed_hz = this->currentVelocity - maxAcceleration * timeStep;
     }
 
-    // limit speed
+    // Limit speed.
     if (speed_hz > maxVelocity)
     {
         speed_hz = maxVelocity;
@@ -116,12 +112,12 @@ void Motor::timerCallback()
         speed_hz = -maxVelocity;
     }
 
-    // set steps to move based on the limited speed
+    // Set steps to move based on the limited speed.
     if (abs(stepsToMove) > abs(speed_hz * timeStep))
         if ((int)(speed_hz * timeStep) != 0)
             stepsToMove = speed_hz * timeStep;
 
-    // implement deceleration by checking if our future position and velocity would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we stop at the setpoint
+    // Decelerate if we would overshoot the setpoint.
     float distanceToSetpoint = this->setpointPosition - this->currentPosition;
 
     
@@ -133,17 +129,13 @@ void Motor::timerCallback()
         stepsToMove = speed_hz * timeStep;
     }
 
-    // prevent overshooting due to step quantization by checking if the steps to move would cause us to overshoot the setpoint, and if so, limit the steps to move to ensure we do not overshoot
+    // Prevent overshoot caused by step quantization.
     if (abs(stepsToMove) > abs(distanceToSetpoint))
     {        stepsToMove = distanceToSetpoint;
     }
 
     debugPrintf(">stepsToMove:%d\n", stepsToMove);
     this->driver.moveSteps(stepsToMove, abs(speed_hz));
-    // For simplicity, we will assume that the motor moves the commanded steps instantly. In reality, you would want to track the actual position using encoder feedback and update currentPosition accordingly.
-    // this->currentPosition += stepsToMove;
-    // this->currentVelocity = speed_hz;
-
     this->lastPosition = this->currentPosition; // update last position for velocity calculation in the next timer callback
 
 }
@@ -152,7 +144,7 @@ void Motor::timerCallback()
 
 std::string Motor::log()
 {
-    return "\n>pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);   
+    return "\n>pos:" + std::to_string(this->currentPosition) + "\n>vel:" + std::to_string(this->currentVelocity) + "\n>setpoint:" + std::to_string(this->setpointPosition);
 }
 
 

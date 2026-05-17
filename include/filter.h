@@ -1,11 +1,22 @@
-// provide a simple low-pass filter for smoothing out sensor readings
 #ifndef FILTER_H
 #define FILTER_H
 
+/**
+ * @brief Simple single-pole low-pass filter for sensor smoothing.
+ */
 class LowPassFilter {
 public:
+    /**
+     * @brief Construct a low-pass filter.
+     * @param alpha Smoothing factor in [0,1], higher favors new values.
+     */
     LowPassFilter(float alpha) : alpha(alpha), hasLastValue(false), lastValue(0.0f) {}    
 
+    /**
+     * @brief Apply the filter to a new sample.
+     * @param newValue New sample value.
+     * @return Filtered output value.
+     */
     float filter(float newValue) {
         if (!hasLastValue) {
             lastValue = newValue;
