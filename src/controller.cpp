@@ -1,16 +1,14 @@
 #include "controller.h"
 #include <Arduino.h>
 #include "config.h"
-#include "CanDatabase.h"
 
 Controller::Controller() : motor(),
-                           enginePulseCounter(PRIMARY_HALL_PIN, PRIMARY_COUNTER_ID, PRIMARY_MAGNET_COUNT),
-                           can(CAN_TX_PIN, CAN_RX_PIN)
+                           enginePulseCounter(PRIMARY_HALL_PIN, PRIMARY_COUNTER_ID, PRIMARY_MAGNET_COUNT)
 {
 }
 
 /**
- * @brief Start control timers, initialize I/O, and bring up CAN.
+ * @brief Start control timers, initialize I/O, and bring up the SD logger.
  */
 void Controller::init()
 {
@@ -41,7 +39,11 @@ void Controller::init()
     pinMode(LIMIT_SWITCH_PIN, INPUT);
     motor.init();   // Start the motor timer as well
     motor.enable(); // Enable the motor driver
-    can.begin();    // Start the CAN bus
+
+    // TX-only UART to the SD card logger (RX pin unused).
+    Serial2.setTxBufferSize(SD_LOG_TX_BUFFER_SIZE);
+    Serial2.begin(SD_LOG_BAUD, SERIAL_8N1, -1, SD_LOG_TX_PIN);
+    Serial2.println("time_ms,engine_rpm,motor_setpoint,motor_position,brake_state,control_mode");
 }
 
 /**
@@ -92,8 +94,6 @@ void Controller::timerCallback()
     {
         Serial.printf("Motor fault detected! Fault code: 0x%X\n", fault);
     }
-
-    this->sendCan();
 }
 
 int Controller::rpmToSetpoint(float rpm)
@@ -198,78 +198,16 @@ void Controller::resetHomingRoutine()
 
 
 /**
- * @brief Send telemetry frames to the CAN bus.
+ * @brief Write a CSV telemetry row to the SD card logger.
  */
-void Controller::sendCan() {
-    CanMessage engineRpmMsg(CanDatabase::ENGINE_RPM.id, this->enginePulseCounter.getFilteredRPM());
-    esp_err_t ret = can.writeMessage(engineRpmMsg, 0);
-    
-    if (ret != ESP_OK)
-    {
-        #ifdef CAN_DEBUG
-        Serial.printf("Failed to send ENGINE_RPM message. Error code: %s\n", esp_err_to_name(ret));
-        #endif
-    }
-
-    CanMessage motorSetpointMsg(CanDatabase::MOTOR_SETPOINT.id, this->motor.getSetpoint());
-    ret = can.writeMessage(motorSetpointMsg, 0);
-    if (ret != ESP_OK)
-    {
-        #ifdef CAN_DEBUG
-        Serial.printf("Failed to send MOTOR_SETPOINT message. Error code: %s\n", esp_err_to_name(ret));
-        #endif
-    }
-
-    CanMessage motorPositionMsg(CanDatabase::MOTOR_POSITION.id, this->motor.getPosition());
-    ret = can.writeMessage(motorPositionMsg, 0);
-    if (ret != ESP_OK)    {
-        #ifdef CAN_DEBUG
-        Serial.printf("Failed to send MOTOR_POSITION message. Error code: %s\n", esp_err_to_name(ret));
-        #endif
-    }
-
-    CanMessage brakeStateMsg(CanDatabase::SECONDARY_RPM.id, (float)(this->brake_pressed ? 1 : 0));
-    ret = can.writeMessage(brakeStateMsg, 0);
-    if (ret != ESP_OK)    {
-        #ifdef CAN_DEBUG
-        Serial.printf("Failed to send BRAKE_STATE message. Error code: %s\n", esp_err_to_name(ret));
-        #endif
-    }
-
-    #ifdef CAN_DEBUG
-    twai_status_info_t status;
-    if (twai_get_status_info(&status) == ESP_OK) {
-        Serial.printf("CAN bus status - msgs_to_tx: %d, msgs_to_rx: %d, bus_state: %d\n", status.msgs_to_tx, status.msgs_to_rx, status.state);
-    }
-    #endif
-}
-
-/**
- * @brief Read inbound CAN messages for brake and mode data.
- */
-void Controller::readCan() {
-    CanMessage message;
-    while (can.readMessage(message, 0) == ESP_OK) {
-        if (message.getId() == CanDatabase::BRAKE_POT.id && message.getDataType() == CanDatabase::BRAKE_POT.type) {
-            this->brake_pos = message.getFloat();
-            #ifdef CAN_DEBUG
-            Serial.printf(">BRAKE_POT:%.2f\n", this->brake_pos);
-            #endif
-
-            if (this->brake_pos > BRAKE_THRESHOLD) {
-                this->controlMode = BRAKE;
-            } else {
-                this->controlMode = POWER;  
-            }
-        } else if (message.getId() == CanDatabase::LINEAR_SPEED.id && message.getDataType() == CanDatabase::LINEAR_SPEED.type) {
-            float linearSpeed = message.getFloat();
-            #ifdef CAN_DEBUG
-            Serial.printf(">LINEAR_SPEED:%.2f\n", linearSpeed);
-            #endif
-
-        }
-
-    }
+void Controller::logToSd() {
+    Serial2.printf("%lu,%.1f,%d,%d,%d,%s\n",
+                   millis(),
+                   this->enginePulseCounter.getFilteredRPM(),
+                   this->motor.getSetpoint(),
+                   this->motor.getPosition(),
+                   this->brake_pressed ? 1 : 0,
+                   controlModeToString(this->controlMode).c_str());
 }
 
 

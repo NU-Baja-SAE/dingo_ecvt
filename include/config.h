@@ -5,11 +5,14 @@
 
 
 /**
- * @brief CAN bus pin assignments.
+ * @brief Serial SD card logger (e.g. OpenLog) configuration.
+ * The logger is TX-only: wire SD_LOG_TX_PIN to the logger's RX input.
+ * SD_LOG_BAUD must match the baud rate in the logger's config file.
  */
 
-#define CAN_TX_PIN GPIO_NUM_5
-#define CAN_RX_PIN GPIO_NUM_4
+#define SD_LOG_TX_PIN GPIO_NUM_32
+#define SD_LOG_BAUD 115200
+#define SD_LOG_TX_BUFFER_SIZE 1024 // bytes buffered so logging never blocks the loop
 
 
 /**
@@ -133,7 +136,6 @@
 /**
  * @brief Brake input configuration.
  */
-#define BRAKE_THRESHOLD 0.5f // threshold for brake pedal position to switch to brake
 #define BRAKE_PIN GPIO_NUM_27
 
 
@@ -176,8 +178,3 @@
 
 
 
-
-/**
- * @brief Debug mode flags.
- */
-// #define CAN_DEBUG

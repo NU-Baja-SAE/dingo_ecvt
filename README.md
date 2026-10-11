@@ -2,21 +2,21 @@
 
 ## Overview
 
-This repository contains the embedded control firmware for the Dingo ECVT system. It runs on an ESP32 and manages a DRV8462-driven stepper motor to position the CVT sheave based on engine RPM and operator-selected modes. Telemetry is published over CAN for logging and diagnostics.
+This repository contains the embedded control firmware for the Dingo ECVT system. It runs on an ESP32 and manages a DRV8462-driven stepper motor to position the CVT sheave based on engine RPM and operator-selected modes. Telemetry is logged as CSV to an SD card through a serial (TX-only) logger such as an OpenLog.
 
 ## High-level architecture
 
-- **Control loop**: A FreeRTOS timer drives the main controller tick that selects a mode, computes a sheave position setpoint, and publishes CAN telemetry.
+- **Control loop**: A FreeRTOS timer drives the main controller tick that selects a mode and computes a sheave position setpoint.
 - **Motor subsystem**: A dedicated motor timer applies acceleration/velocity limiting and commands the DRV8462 driver via RMT step pulses.
 - **Sensing**: Hall-effect pulse counting provides engine RPM, and a quadrature encoder provides motor position feedback.
-- **Telemetry**: CAN messages broadcast engine RPM, motor setpoint, motor position, and brake state.
+- **Telemetry**: CSV rows with time, engine RPM, motor setpoint, motor position, brake state, and control mode are written over UART2 TX (GPIO32) to an SD card logger.
 
 ## Detailed breakdown
 
 ### Application core
 
 - `src/main.cpp`: Arduino entry points, initializes the controller, and prints telemetry snapshots for debugging.
-- `include/controller.h` / `src/controller.cpp`: Main control logic, mode selection, homing sequence, RPM-to-setpoint logic, and CAN publish/consume logic.
+- `include/controller.h` / `src/controller.cpp`: Main control logic, mode selection, homing sequence, RPM-to-setpoint logic, and SD card logging.
 
 ### Motor control
 
@@ -33,7 +33,6 @@ This repository contains the embedded control firmware for the Dingo ECVT system
 ### Configuration and integration
 
 - `include/config.h`: Pin mappings, timer rates, motor and controller constants, and debug flags.
-- `lib/baja_can/`: CAN transport library (TWAI wrapper and typed message helpers).
 
 ## Repository structure
 
@@ -50,12 +49,6 @@ dingo_ecvt/
 │  ├─ filter.h              # Simple low-pass filter utility
 │  ├─ DRV8462_REGMAP.h      # Register map for DRV8462 motor driver
 │  └─ DRV8462.h             # Motor driver interface
-├─ lib/                     # Local libraries and submodules
-│  └─ baja_can/             # CAN driver library (submodule)
-│     ├─ platformio.ini     # Library-specific PlatformIO config
-│     ├─ README.md          # Library documentation
-│     ├─ include/           # Library headers (e.g., BajaCan.h)
-│     └─ src/               # Library implementation (e.g., BajaCan.cpp)
 └─ src/                     # Main application sources
    ├─ controller.cpp        # Control logic implementation
    ├─ main.cpp              # Application entry point

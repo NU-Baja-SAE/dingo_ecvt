@@ -1,3 +1,0 @@
-[submodule "lib/baja_can"]
-	path = lib/baja_can
-	url = https://github.com/NU-Baja-SAE/baja_can.git

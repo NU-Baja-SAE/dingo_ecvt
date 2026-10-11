@@ -4,7 +4,6 @@
 
 #include "motor.h"
 #include "pulse_counter.h"
-#include "BajaCan.h"
 #include <string>
 #include "filter.h"
 #include "config.h"
@@ -92,7 +91,7 @@ class Controller {
         Controller();
 
         /**
-         * @brief Initialize timers, I/O, motor driver, and CAN.
+         * @brief Initialize timers, I/O, motor driver, and SD logger.
          */
         void init();
 
@@ -100,6 +99,11 @@ class Controller {
          * @brief FreeRTOS timer handle used by main health checks.
          */
         TimerHandle_t controller_timer;
+
+        /**
+         * @brief Write one CSV telemetry row to the SD card logger.
+         */
+        void logToSd();
 
         /**
          * @brief Build a human-readable telemetry snapshot.
@@ -138,28 +142,16 @@ class Controller {
         void resetHomingRoutine();
 
         /**
-         * @brief Publish telemetry over CAN.
-         */
-        void sendCan();
-
-        /**
-         * @brief Consume CAN commands for mode and brake state.
-         */
-        void readCan();
-
-        /**
          * @brief Update control mode based on manual mode input.
          */
         void setMode();
 
         float last_Error;
-        float brake_pos = 0.0f;
         bool brake_pressed = false;
         bool homingFirstTrigger = false;
         unsigned long homingTriggerTime = 0;
         Motor motor;
         PulseCounter enginePulseCounter;
-        BajaCan can;
         ControlMode controlMode = HOMING;
         float last_speed = 0.0f;
 };
