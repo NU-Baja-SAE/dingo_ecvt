@@ -43,7 +43,6 @@ void Controller::init()
     // TX-only UART to the SD card logger (RX pin unused).
     Serial2.setTxBufferSize(SD_LOG_TX_BUFFER_SIZE);
     Serial2.begin(SD_LOG_BAUD, SERIAL_8N1, -1, SD_LOG_TX_PIN);
-    Serial2.println("time_ms,engine_rpm,motor_setpoint,motor_position,brake_state,control_mode");
 }
 
 /**
@@ -199,6 +198,7 @@ void Controller::resetHomingRoutine()
 
 /**
  * @brief Write a CSV telemetry row to the SD card logger.
+ * Column order must match LOG_CSV_HEADER in sd_logger/src/main.cpp.
  */
 void Controller::logToSd() {
     Serial2.printf("%lu,%.1f,%d,%d,%d,%s\n",

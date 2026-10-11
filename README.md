@@ -2,14 +2,14 @@
 
 ## Overview
 
-This repository contains the embedded control firmware for the Dingo ECVT system. It runs on an ESP32 and manages a DRV8462-driven stepper motor to position the CVT sheave based on engine RPM and operator-selected modes. Telemetry is logged as CSV to an SD card through a serial (TX-only) logger such as an OpenLog.
+This repository contains the embedded control firmware for the Dingo ECVT system. It runs on an ESP32 and manages a DRV8462-driven stepper motor to position the CVT sheave based on engine RPM and operator-selected modes. Telemetry is sent over a TX-only serial link to an ESP32-CAM, which logs it as CSV to its SD card.
 
 ## High-level architecture
 
 - **Control loop**: A FreeRTOS timer drives the main controller tick that selects a mode and computes a sheave position setpoint.
 - **Motor subsystem**: A dedicated motor timer applies acceleration/velocity limiting and commands the DRV8462 driver via RMT step pulses.
 - **Sensing**: Hall-effect pulse counting provides engine RPM, and a quadrature encoder provides motor position feedback.
-- **Telemetry**: CSV rows with time, engine RPM, motor setpoint, motor position, brake state, and control mode are written over UART2 TX (GPIO32) to an SD card logger.
+- **Telemetry**: CSV rows with time, engine RPM, motor setpoint, motor position, brake state, and control mode are sent over UART2 TX (GPIO32) to an ESP32-CAM (RX on GPIO13), which writes them to a new `log_NNNN.csv` file on its SD card each boot.
 
 ## Detailed breakdown
 
@@ -30,6 +30,10 @@ This repository contains the embedded control firmware for the Dingo ECVT system
 - `include/pulse_counter.h` / `src/pulse_counter.cpp`: Hall sensor pulse counter with RPM calculation and low-pass filtering.
 - `include/filter.h`: Small low-pass filter utility used for RPM smoothing.
 
+### SD card logger (ESP32-CAM)
+
+- `sd_logger/`: Separate PlatformIO project for the ESP32-CAM. Receives telemetry on GPIO13 at 115200 baud and writes it to the SD card (1-bit mode), flushing every second. Build/upload with `pio run -d sd_logger -t upload`.
+
 ### Configuration and integration
 
 - `include/config.h`: Pin mappings, timer rates, motor and controller constants, and debug flags.
@@ -49,6 +53,9 @@ dingo_ecvt/
 │  ├─ filter.h              # Simple low-pass filter utility
 │  ├─ DRV8462_REGMAP.h      # Register map for DRV8462 motor driver
 │  └─ DRV8462.h             # Motor driver interface
+├─ sd_logger/               # ESP32-CAM serial-to-SD logger firmware
+│  ├─ platformio.ini
+│  └─ src/main.cpp
 └─ src/                     # Main application sources
    ├─ controller.cpp        # Control logic implementation
    ├─ main.cpp              # Application entry point

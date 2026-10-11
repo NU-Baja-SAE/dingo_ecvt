@@ -5,9 +5,9 @@
 
 
 /**
- * @brief Serial SD card logger (e.g. OpenLog) configuration.
- * The logger is TX-only: wire SD_LOG_TX_PIN to the logger's RX input.
- * SD_LOG_BAUD must match the baud rate in the logger's config file.
+ * @brief ESP32-CAM SD card logger configuration (firmware in sd_logger/).
+ * The link is TX-only: wire SD_LOG_TX_PIN to ESP32-CAM GPIO13, plus GND.
+ * SD_LOG_BAUD must match LOG_BAUD in the logger firmware.
  */
 
 #define SD_LOG_TX_PIN GPIO_NUM_32
