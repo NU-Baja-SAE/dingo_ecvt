@@ -11,7 +11,7 @@
  */
 #define ESPNOW_ENABLE 1
 #define ESPNOW_CHANNEL 1
-#define ESPNOW_PEER_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+#define ESPNOW_PEER_MAC {0x78, 0x42, 0x1C, 0x6C, 0x80, 0x74} // receiver ESP32 (78:42:1C:6C:80:74)
 
 
 /**

@@ -34,6 +34,10 @@ This repository contains the embedded control firmware for the Dingo ECVT system
 
 - `include/telemetry.h`: Packed `TelemetryPacket` sent over ESP-NOW. Include it in the receiver firmware and check `version` and the packet length before using it.
 
+### ESP-NOW receiver
+
+- `receiver/`: Separate PlatformIO project for the ESP32 that receives telemetry over ESP-NOW (channel 1) and prints it over USB serial as CSV, with `# link lost` and dropped-packet notices. Its WiFi MAC must match `ESPNOW_PEER_MAC`. Build/upload with `pio run -d receiver -t upload`.
+
 ### SD card logger (ESP32-CAM, disabled)
 
 - `sd_logger/`: Currently unused; set `SD_LOG_ENABLE` to 1 in `config.h` to send telemetry to it again. Separate PlatformIO project for the ESP32-CAM. Receives telemetry on GPIO13 at 115200 baud and writes it to the SD card (1-bit mode), flushing every second. Build/upload with `pio run -d sd_logger -t upload`.
@@ -58,6 +62,9 @@ dingo_ecvt/
 │  ├─ telemetry.h           # ESP-NOW telemetry packet
 │  ├─ DRV8462_REGMAP.h      # Register map for DRV8462 motor driver
 │  └─ DRV8462.h             # Motor driver interface
+├─ receiver/                # ESP-NOW telemetry receiver firmware
+│  ├─ platformio.ini
+│  └─ src/main.cpp
 ├─ sd_logger/               # ESP32-CAM serial-to-SD logger firmware (disabled)
 │  ├─ platformio.ini
 │  └─ src/main.cpp
