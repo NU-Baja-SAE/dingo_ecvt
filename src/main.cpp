@@ -12,6 +12,8 @@ Controller controller;
  */
 void setup() {
   Serial.begin(115200);
+  // 9 = ESP_RST_BROWNOUT: the supply sagged (e.g. when WiFi starts).
+  Serial.printf("Reset reason: %d\n", esp_reset_reason());
   controller.init();
 }
 

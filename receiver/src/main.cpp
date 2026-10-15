@@ -8,20 +8,17 @@
  * @file main.cpp
  * @brief ESP-NOW receiver for ECVT telemetry.
  *
- * Receives TelemetryPacket frames from the ECVT and prints each one over USB
- * serial as a CSV row. The ECVT must have this board's MAC as ESPNOW_PEER_MAC.
+ * Receives TelemetryPacket frames from the ECVT and prints each field over USB
+ * serial as a KEY=VALUE line, the format read by the Dingo_wheels
+ * serial_plotter.py (see its SERIAL_FORMAT.md). Status lines never contain '='
+ * so the plotter ignores them. The ECVT must have this board's MAC as
+ * ESPNOW_PEER_MAC.
  */
 
 #define ESPNOW_CHANNEL 1 // must match ESPNOW_CHANNEL in include/config.h
 #define PACKET_QUEUE_LENGTH 32
 #define LINK_TIMEOUT_MS 1000 // warn when no packet arrives for this long
 #define STATUS_LED_PIN 2     // onboard blue LED on the DOIT devkit
-
-#define LOG_CSV_HEADER "time_ms,engine_rpm,motor_setpoint,motor_position,brake_state,control_mode"
-
-// Same order as the ControlMode enum in include/controller.h.
-static const char *const CONTROL_MODE_NAMES[] = {
-    "TORQUE", "POWER", "MANUAL", "BRAKE", "DEBUG", "HOMING", "BRAKE_CHECK", "ACCELERATION"};
 
 QueueHandle_t packetQueue;
 volatile uint32_t droppedPackets = 0;
@@ -63,7 +60,6 @@ void setup() {
     esp_now_register_recv_cb(onReceive);
 
     Serial.printf("ESP-NOW receiver ready, MAC %s, channel %d\n", WiFi.macAddress().c_str(), ESPNOW_CHANNEL);
-    Serial.println(LOG_CSV_HEADER);
 }
 
 /**
@@ -76,27 +72,24 @@ void loop() {
 
     TelemetryPacket packet;
     if (xQueueReceive(packetQueue, &packet, pdMS_TO_TICKS(100)) == pdTRUE) {
-        const char *mode = packet.control_mode < sizeof(CONTROL_MODE_NAMES) / sizeof(CONTROL_MODE_NAMES[0])
-                               ? CONTROL_MODE_NAMES[packet.control_mode]
-                               : "UNKNOWN";
-        Serial.printf("%lu,%.1f,%ld,%ld,%u,%s\n",
-                      (unsigned long)packet.time_ms,
-                      packet.engine_rpm,
-                      (long)packet.motor_setpoint,
-                      (long)packet.motor_position,
-                      packet.brake_state,
-                      mode);
+        // MODE is the ControlMode enum value from include/controller.h;
+        // BRAKE_POT carries the ECVT's digital brake state (0/1).
+        Serial.printf("ENGINE_RPM=%.2f\n", packet.engine_rpm);
+        Serial.printf("MOTOR_SETPOINT=%ld\n", (long)packet.motor_setpoint);
+        Serial.printf("MOTOR_POSITION=%ld\n", (long)packet.motor_position);
+        Serial.printf("MODE=%u\n", packet.control_mode);
+        Serial.printf("BRAKE_POT=%u\n", packet.brake_state);
         lastPacketTime = millis();
         linkLost = false;
         digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
     } else if (!linkLost && millis() - lastPacketTime > LINK_TIMEOUT_MS) {
-        Serial.println("# link lost: no packets from ECVT");
+        Serial.println("link lost: no packets from ECVT");
         linkLost = true;
         digitalWrite(STATUS_LED_PIN, LOW);
     }
 
     if (droppedPackets != reportedDrops) {
         reportedDrops = droppedPackets;
-        Serial.printf("# dropped packets: %lu\n", (unsigned long)reportedDrops);
+        Serial.printf("dropped packets: %lu\n", (unsigned long)reportedDrops);
     }
 }

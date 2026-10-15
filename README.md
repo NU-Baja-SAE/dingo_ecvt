@@ -36,7 +36,7 @@ This repository contains the embedded control firmware for the Dingo ECVT system
 
 ### ESP-NOW receiver
 
-- `receiver/`: Separate PlatformIO project for the ESP32 that receives telemetry over ESP-NOW (channel 1) and prints it over USB serial as CSV, with `# link lost` and dropped-packet notices. Its WiFi MAC must match `ESPNOW_PEER_MAC`. Build/upload with `pio run -d receiver -t upload`.
+- `receiver/`: Separate PlatformIO project for the ESP32 that receives telemetry over ESP-NOW (channel 1) and prints it over USB serial as `KEY=VALUE` lines for the Dingo_wheels `serial_plotter.py` (`ENGINE_RPM`, `MOTOR_SETPOINT`, `MOTOR_POSITION`, `MODE`, `BRAKE_POT`), plus link-lost and dropped-packet notices. Its WiFi MAC must match `ESPNOW_PEER_MAC`. Build/upload with `pio run -d receiver -t upload`.
 
 ### SD card logger (ESP32-CAM, disabled)
 

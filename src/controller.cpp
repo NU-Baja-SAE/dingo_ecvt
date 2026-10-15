@@ -63,6 +63,7 @@ void Controller::init()
 void Controller::initEspNow()
 {
     WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(ESPNOW_TX_POWER);
     WiFi.disconnect();
     esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
 

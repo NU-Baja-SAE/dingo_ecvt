@@ -11,7 +11,10 @@
  */
 #define ESPNOW_ENABLE 1
 #define ESPNOW_CHANNEL 1
-#define ESPNOW_PEER_MAC {0x78, 0x42, 0x1C, 0x6C, 0x80, 0x74} // receiver ESP32 (78:42:1C:6C:80:74)
+#define ESPNOW_PEER_MAC {0x1C, 0x69, 0x20, 0x93, 0xE0, 0xEC} // receiver ESP32 (1C:69:20:93:E0:EC)
+// Reduced from the 19.5 dBm default to cut the WiFi current spike that can
+// brown out the ESP32 on startup. Raise it if the range is too short.
+#define ESPNOW_TX_POWER WIFI_POWER_8_5dBm
 
 
 /**
