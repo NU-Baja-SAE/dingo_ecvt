@@ -91,7 +91,7 @@ class Controller {
         Controller();
 
         /**
-         * @brief Initialize timers, I/O, motor driver, and SD logger.
+         * @brief Initialize timers, I/O, motor driver, and telemetry links.
          */
         void init();
 
@@ -101,9 +101,9 @@ class Controller {
         TimerHandle_t controller_timer;
 
         /**
-         * @brief Write one CSV telemetry row to the SD card logger.
+         * @brief Send one telemetry sample over the enabled links (ESP-NOW, SD logger).
          */
-        void logToSd();
+        void sendTelemetry();
 
         /**
          * @brief Build a human-readable telemetry snapshot.
@@ -112,7 +112,7 @@ class Controller {
         std::string log() {
             return motor.log() +
                    "\n>Engine_RPM:" + std::to_string(enginePulseCounter.getFilteredRPM()) +
-                   "\n>brake_state:" + std::to_string(analogRead(BRAKE_PIN) > 1000 ? 1 : 0) +
+                   "\n>brake_state:" + std::to_string(digitalRead(BRAKE_PIN) == HIGH ? 1 : 0) +
                    "\n>manual_mode:" + std::to_string(this->brake_pressed ? 1 : 0) +
                    "\n>control_mode:" + controlModeToString(this->controlMode) + "|t";
         }
@@ -145,6 +145,13 @@ class Controller {
          * @brief Update control mode based on manual mode input.
          */
         void setMode();
+
+        /**
+         * @brief Bring up WiFi in station mode and register the ESP-NOW peer.
+         */
+        void initEspNow();
+
+        bool espNowReady = false;
 
         float last_Error;
         bool brake_pressed = false;

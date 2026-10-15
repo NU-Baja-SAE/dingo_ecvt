@@ -5,11 +5,23 @@
 
 
 /**
+ * @brief ESP-NOW telemetry configuration (packet format in telemetry.h).
+ * ESPNOW_PEER_MAC is the receiver's station MAC; FF:FF:FF:FF:FF:FF broadcasts
+ * to any ESP-NOW receiver on ESPNOW_CHANNEL.
+ */
+#define ESPNOW_ENABLE 1
+#define ESPNOW_CHANNEL 1
+#define ESPNOW_PEER_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+
+
+/**
  * @brief ESP32-CAM SD card logger configuration (firmware in sd_logger/).
+ * Disabled in favor of ESP-NOW; set SD_LOG_ENABLE to 1 to bring it back.
  * The link is TX-only: wire SD_LOG_TX_PIN to ESP32-CAM GPIO13, plus GND.
  * SD_LOG_BAUD must match LOG_BAUD in the logger firmware.
  */
 
+#define SD_LOG_ENABLE 0
 #define SD_LOG_TX_PIN GPIO_NUM_32
 #define SD_LOG_BAUD 115200
 #define SD_LOG_TX_BUFFER_SIZE 1024 // bytes buffered so logging never blocks the loop
